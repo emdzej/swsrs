@@ -126,7 +126,7 @@ function runChat(
     stdout.write(`\r${text}\n`);
   });
 
-  conn.closed.then((e) => {
+  conn.closed.then((e: CloseEvent) => {
     console.error(`[swsrs-chat] disconnected (${e.code} ${e.reason || "no reason"})`);
     process.exit(0);
   });

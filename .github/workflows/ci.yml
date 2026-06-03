@@ -62,9 +62,10 @@ jobs:
       - name: install
         run: pnpm install --frozen-lockfile
 
-      - name: typecheck (all packages)
-        run: pnpm -r exec tsc --noEmit
-
+      # Build before typecheck: examples consume @emdzej/swsrs-client via the
+      # workspace link, which points at its dist/ for `types`. The build step
+      # itself typechecks (tsc fails on type errors), so this single pass is
+      # the full check.
       - name: build (all packages)
         run: pnpm -r run build
 
