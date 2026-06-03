@@ -1,6 +1,6 @@
 {
   "name": "@emdzej/swsrs-client",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Client SDK for swsrs (simple websocket relay service): admin API + peer connection helpers for browser and Node 22+.",
   "type": "module",
   "main": "./dist/index.js",

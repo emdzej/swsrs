@@ -15,6 +15,7 @@ import (
 
 	"github.com/emdzej/swsrs/internal/admin"
 	"github.com/emdzej/swsrs/internal/auth"
+	"github.com/emdzej/swsrs/internal/cors"
 	"github.com/emdzej/swsrs/internal/discovery"
 	"github.com/emdzej/swsrs/internal/relay"
 	"github.com/emdzej/swsrs/internal/session"
@@ -118,9 +119,11 @@ func runServe(args []string) int {
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	corsMW := &cors.Middleware{AllowedOriginPatterns: cfg.AllowedOrigins}
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           mux,
+		Handler:           corsMW.Wrap(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

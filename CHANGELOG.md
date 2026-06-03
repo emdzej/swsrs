@@ -12,6 +12,25 @@ The Go binary (`swsrs`), the Docker image, and the TypeScript SDK
 
 _Nothing yet._
 
+## [0.2.1] — 2026-06-03
+
+### Added — CORS on the HTTP surfaces
+
+- `/admin/*` and `/.well-known/swsrs-config` now emit proper CORS
+  headers when the request `Origin` matches `SWSRS_ALLOWED_ORIGINS`.
+  Same configuration as the WebSocket data plane — one allowlist for
+  both surfaces. Glob host patterns supported (`app.example.com`,
+  `*.example.com`, `localhost:*`).
+- `OPTIONS` preflight requests short-circuit with `Access-Control-
+  Allow-Methods`, `Access-Control-Allow-Headers` (echoed back),
+  `Access-Control-Allow-Credentials: true`, and a 10-minute
+  `Access-Control-Max-Age`.
+- Disallowed origins fall through silently (no CORS headers set,
+  browsers block the response). `Vary: Origin` is always emitted to
+  prevent cache poisoning across origins.
+- Empty `SWSRS_ALLOWED_ORIGINS` keeps the previous behavior (no CORS
+  headers; same-origin only).
+
 ## [0.2.0] — 2026-06-03
 
 First unified release: server binary, Go SDK, npm package
@@ -176,6 +195,7 @@ client surface — `AdminClient`, `dial` / `accept` returning a
 
 No corresponding server / Go binary / Docker release at this version.
 
-[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/emdzej/swsrs/releases/tag/v0.2.1
 [0.2.0]: https://github.com/emdzej/swsrs/releases/tag/v0.2.0
 [`@emdzej/swsrs-client` 0.1.0]: https://www.npmjs.com/package/@emdzej/swsrs-client/v/0.1.0
