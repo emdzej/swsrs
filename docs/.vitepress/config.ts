@@ -1,6 +1,7 @@
 import { defineConfig } from "vitepress";
+import { withMermaid } from "vitepress-plugin-mermaid";
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: "swsrs",
   description:
     "Simple WebSocket Relay Service: tunnel two parties behind NAT through a tiny self-hostable relay.",
@@ -109,4 +110,4 @@ export default defineConfig({
 
     outline: { level: [2, 3] },
   },
-});
+}));

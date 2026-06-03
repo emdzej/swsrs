@@ -45,20 +45,19 @@ features:
 
 You have a service behind NAT — a diagnostic probe, a dev server, a customer's machine — and you need to reach it from somewhere else without poking holes in firewalls or running a VPN. **swsrs is one rendezvous endpoint that both sides open an outbound WebSocket to.** No port forwarding, no inbound rules, no client-side daemons in your customers' networks.
 
-```
-              ┌──────────────────────┐
-              │   swsrs (cloud)      │
-              │   ~7 MB static bin   │
-              └──────────▲───────────┘
-                         │ wss://
-        ┌────────────────┴────────────────┐
-        │                                 │
-   outbound WS                       outbound WS
-        │                                 │
-  ┌─────┴──────┐                  ┌───────┴──────┐
-  │ probe / sshd│  ────────────▶  │ UI / browser │
-  │  behind NAT │     bytes flow  │ behind NAT   │
-  └─────────────┘                 └──────────────┘
+```mermaid
+flowchart TB
+    relay["<b>swsrs</b> (cloud)<br/>~7 MB static binary"]
+    peerA["peer A — probe / sshd<br/>behind NAT"]
+    peerB["peer B — UI / browser<br/>behind NAT"]
+    peerA -- outbound wss:// --> relay
+    peerB -- outbound wss:// --> relay
+    peerA -. bytes flow .- peerB
+
+    classDef cloud fill:#2563eb,stroke:#1d4ed8,color:#fff
+    classDef peer  fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    class relay cloud
+    class peerA,peerB peer
 ```
 
 ## What makes it different

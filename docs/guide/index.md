@@ -6,20 +6,19 @@ in spirit to [wstunnel](https://github.com/erebe/wstunnel), but with
 orchestrated sessions and a clean separation between the admin plane
 (OIDC-protected) and the data plane (opaque per-slot tokens).
 
-```
-                ┌────────────────────┐
-                │   swsrs (cloud)    │
-                │  one small binary  │
-                └─────────▲──────────┘
-                          │ wss://
-            ┌─────────────┴─────────────┐
-            │                           │
-       outbound WS                  outbound WS
-            │                           │
-   ┌────────┴────────┐         ┌────────┴────────┐
-   │   peer A        │         │   peer B        │
-   │  (behind NAT)   │ <─────> │  (behind NAT)   │
-   └─────────────────┘  relay  └─────────────────┘
+```mermaid
+flowchart TB
+    relay["<b>swsrs</b> (cloud)<br/>one small binary"]
+    peerA["peer A<br/>behind NAT"]
+    peerB["peer B<br/>behind NAT"]
+    peerA -- outbound wss:// --> relay
+    peerB -- outbound wss:// --> relay
+    peerA -. bytes flow .- peerB
+
+    classDef cloud fill:#2563eb,stroke:#1d4ed8,color:#fff
+    classDef peer  fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    class relay cloud
+    class peerA,peerB peer
 ```
 
 ## When to use it
