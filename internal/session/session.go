@@ -26,10 +26,10 @@ const (
 type State int
 
 const (
-	StatePending   State = iota // created, no peers connected
-	StateHalfOpen               // one peer connected, waiting for the other
-	StateOpen                   // both peers connected, relaying
-	StateClosed                 // terminated
+	StatePending  State = iota // created, no peers connected
+	StateHalfOpen              // one peer connected, waiting for the other
+	StateOpen                  // both peers connected, relaying
+	StateClosed                // terminated
 )
 
 func (s State) String() string {

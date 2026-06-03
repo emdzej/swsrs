@@ -42,13 +42,13 @@ func (a *API) guard(scope string, h http.Handler) http.Handler {
 }
 
 type createResponse struct {
-	ID              string    `json:"id"`
-	InitiatorToken  string    `json:"initiator_token"`
-	ResponderToken  string    `json:"responder_token"`
-	InitiatorURL    string    `json:"initiator_url,omitempty"`
-	ResponderURL    string    `json:"responder_url,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	ExpiresAt       time.Time `json:"expires_at"`
+	ID             string    `json:"id"`
+	InitiatorToken string    `json:"initiator_token"`
+	ResponderToken string    `json:"responder_token"`
+	InitiatorURL   string    `json:"initiator_url,omitempty"`
+	ResponderURL   string    `json:"responder_url,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	ExpiresAt      time.Time `json:"expires_at"`
 }
 
 func (a *API) create(w http.ResponseWriter, r *http.Request) {

@@ -24,15 +24,15 @@ type Session struct {
 
 // SessionStatus mirrors the admin API's status response.
 type SessionStatus struct {
-	ID                  string    `json:"id"`
-	State               string    `json:"state"`
-	CreatedAt           time.Time `json:"created_at"`
-	ExpiresAt           time.Time `json:"expires_at"`
-	LastActivity        time.Time `json:"last_activity"`
-	BytesIn             uint64    `json:"bytes_in"`
-	BytesOut            uint64    `json:"bytes_out"`
-	InitiatorConnected  bool      `json:"initiator_connected"`
-	ResponderConnected  bool      `json:"responder_connected"`
+	ID                 string    `json:"id"`
+	State              string    `json:"state"`
+	CreatedAt          time.Time `json:"created_at"`
+	ExpiresAt          time.Time `json:"expires_at"`
+	LastActivity       time.Time `json:"last_activity"`
+	BytesIn            uint64    `json:"bytes_in"`
+	BytesOut           uint64    `json:"bytes_out"`
+	InitiatorConnected bool      `json:"initiator_connected"`
+	ResponderConnected bool      `json:"responder_connected"`
 }
 
 // TokenSource provides a bearer token for admin calls. It is invoked per
