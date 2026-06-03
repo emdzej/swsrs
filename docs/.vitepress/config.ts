@@ -40,6 +40,7 @@ export default defineConfig({
             { text: "Overview", link: "/guide/" },
             { text: "Quickstart", link: "/guide/quickstart" },
             { text: "Local dev (no IdP)", link: "/guide/local-dev" },
+            { text: "How it compares", link: "/guide/comparison" },
           ],
         },
         {
@@ -48,6 +49,15 @@ export default defineConfig({
             { text: "How it works", link: "/guide/architecture" },
             { text: "Authentication", link: "/guide/auth" },
             { text: "TLS & CORS", link: "/guide/tls-cors" },
+          ],
+        },
+        {
+          text: "IdP setup",
+          items: [
+            { text: "Overview", link: "/guide/idp/" },
+            { text: "Keycloak", link: "/guide/idp/keycloak" },
+            { text: "Auth0", link: "/guide/idp/auth0" },
+            { text: "Google", link: "/guide/idp/google" },
           ],
         },
         {
