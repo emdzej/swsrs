@@ -10,6 +10,15 @@ applies to.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [`@emdzej/swsrs-client` 0.2.0] — 2026-06-03
+
+First published version of the TypeScript SDK on npm. (The `0.1.0` in
+`package.json` from the initial scaffold was never published; we skipped
+straight to `0.2.0` so the first npm release carries the auth flow.) The
+Go binary and server are still pre-release at this point.
+
 ### Changed — Release tag convention
 
 - Git tags for the binary, Docker image, and Go module are now
@@ -160,5 +169,6 @@ not yet API-stable — expect breaking changes before 1.0.
 - **Single port** for admin + data plane. A flood of relay traffic could
   starve admin requests; split into separate listeners if needed.
 
-[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/emdzej/swsrs/compare/npm-v0.2.0...HEAD
+[`@emdzej/swsrs-client` 0.2.0]: https://github.com/emdzej/swsrs/releases/tag/npm-v0.2.0
 [0.1.0]: https://github.com/emdzej/swsrs/releases/tag/v0.1.0
