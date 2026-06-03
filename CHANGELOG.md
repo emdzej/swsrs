@@ -39,6 +39,16 @@ applies to.
   `@emdzej/swsrs-client/node` provides `FileTokenStore` and
   `defaultCredentialsPath()` using `node:fs`.
 
+### Added — Testing
+
+- **Vitest** in `clients/typescript/`. 24 unit tests covering
+  `discoverConfig` (happy / 404 / 5xx / trailing-slash), `deviceLogin`
+  (all RFC 8628 outcomes including `authorization_pending`, `slow_down`,
+  `access_denied`, `expired_token`, abort), `AdminClient`
+  (auth header, token rotation, error mapping, URL encoding),
+  `MemoryTokenStore`, and `FileTokenStore` (round-trip, mode 0600,
+  parent-dir creation, idempotent clear). Wired into CI.
+
 ## [0.1.0] — 2026-06-03
 
 Initial release. swsrs ships as a single Go binary, a Docker image, a Go SDK,

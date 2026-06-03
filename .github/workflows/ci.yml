@@ -62,12 +62,15 @@ jobs:
       - name: install
         run: pnpm install --frozen-lockfile
 
-      # Build before typecheck: examples consume @emdzej/swsrs-client via the
-      # workspace link, which points at its dist/ for `types`. The build step
-      # itself typechecks (tsc fails on type errors), so this single pass is
-      # the full check.
+      # Build before typecheck/test: examples consume @emdzej/swsrs-client
+      # via the workspace link, which points at its dist/ for `types`. The
+      # build step itself typechecks (tsc fails on type errors), so this
+      # single pass is the full check for shipped code.
       - name: build (all packages)
         run: pnpm -r run build
+
+      - name: test (vitest)
+        run: pnpm --filter @emdzej/swsrs-client test
 
       - name: pack client (dry-run)
         working-directory: clients/typescript
