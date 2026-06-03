@@ -158,6 +158,7 @@ All options accept either env vars or flags. Flags override env.
 | `SWSRS_TLS_KEY` / `--tls-key` | — | PEM key |
 | `SWSRS_NO_AUTH` / `--no-auth` | `false` | **Dev only** — disable OIDC verification on the admin API |
 | `SWSRS_OIDC_CLIENT_ID` / `--oidc-client-id` | — | Shared OAuth `client_id` surfaced via `/.well-known/swsrs-config` (clients use this with device flow) |
+| `SWSRS_MAX_FRAME_SIZE` / `--max-frame-size` | `-1` | Maximum WS frame size in bytes accepted on the data plane. `-1` = unlimited (the right default for a protocol-agnostic relay); set a positive cap if you want defence-in-depth. |
 
 ## Authentication & authorization
 

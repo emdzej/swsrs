@@ -26,6 +26,11 @@ type Handler struct {
 	// AllowedOrigins is passed to the WS accept options. Empty means
 	// same-origin only.
 	AllowedOrigins []string
+	// MaxFrameSize is passed to (*websocket.Conn).SetReadLimit on every
+	// accepted peer connection. -1 disables the limit (the right answer
+	// for a protocol-agnostic relay forwarding opaque bytes). 0 is
+	// treated as -1 for safety; positive values cap incoming frame size.
+	MaxFrameSize int64
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
@@ -58,6 +63,11 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 		h.Logger.Warn("ws accept failed", "session", id, "err", err)
 		return
 	}
+	limit := h.MaxFrameSize
+	if limit == 0 {
+		limit = -1
+	}
+	conn.SetReadLimit(limit)
 	// Background context — we manage lifetime explicitly below.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

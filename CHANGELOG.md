@@ -10,6 +10,19 @@ The Go binary (`swsrs`), the Docker image, and the TypeScript SDK
 
 ## [Unreleased]
 
+### Fixed
+
+- Relay no longer caps incoming WS frames at 32 KB
+  (`coder/websocket`'s default `ReadLimit`). The server-side limit is
+  now disabled by default, matching the Go SDK and consistent with a
+  protocol-agnostic relay. Browser / Node TS SDKs were already fine —
+  the cap was Go-server-only. Fixes close-code 1009 ("message too
+  big") when forwarding payloads larger than 32 KB (e.g. EDIABAS SGBD
+  responses).
+- New `SWSRS_MAX_FRAME_SIZE` env / `--max-frame-size` flag lets you
+  set an explicit cap (in bytes) for defence-in-depth. Default `-1`
+  preserves the unlimited behavior.
+
 ### Added — Documentation site
 
 - New VitePress site under `docs/`, published at

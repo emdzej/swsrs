@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -34,6 +35,7 @@ type serveConfig struct {
 	TLSCert         string
 	TLSKey          string
 	NoAuth          bool
+	MaxFrameSize    int64
 }
 
 func runServe(args []string) int {
@@ -49,6 +51,7 @@ func runServe(args []string) int {
 		TLSCert:         os.Getenv("SWSRS_TLS_CERT"),
 		TLSKey:          os.Getenv("SWSRS_TLS_KEY"),
 		NoAuth:          os.Getenv("SWSRS_NO_AUTH") == "1" || strings.EqualFold(os.Getenv("SWSRS_NO_AUTH"), "true"),
+		MaxFrameSize:    envInt64("SWSRS_MAX_FRAME_SIZE", -1),
 	}
 	if v := os.Getenv("SWSRS_ALLOWED_ORIGINS"); v != "" {
 		cfg.AllowedOrigins = strings.Split(v, ",")
@@ -65,6 +68,7 @@ func runServe(args []string) int {
 	fs.StringVar(&cfg.TLSCert, "tls-cert", cfg.TLSCert, "path to PEM cert (with --tls-key enables TLS; omit both to run plain HTTP behind external termination)")
 	fs.StringVar(&cfg.TLSKey, "tls-key", cfg.TLSKey, "path to PEM key")
 	fs.BoolVar(&cfg.NoAuth, "no-auth", cfg.NoAuth, "DEV ONLY: disable OIDC verification on the admin API; do NOT enable in production")
+	fs.Int64Var(&cfg.MaxFrameSize, "max-frame-size", cfg.MaxFrameSize, "max WS frame size in bytes accepted on the data plane; -1 = unlimited (recommended for protocol-agnostic relay use)")
 	_ = fs.Parse(args)
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -108,6 +112,7 @@ func runServe(args []string) int {
 		Logger:          logger,
 		PeerWaitTimeout: cfg.PeerWaitTimeout,
 		AllowedOrigins:  cfg.AllowedOrigins,
+		MaxFrameSize:    cfg.MaxFrameSize,
 	}).Register(mux)
 	mux.Handle("GET /.well-known/swsrs-config", discovery.Handler(
 		verifier,
@@ -163,6 +168,16 @@ func envDuration(k string, def time.Duration) time.Duration {
 			return d
 		}
 		fmt.Fprintf(os.Stderr, "ignoring invalid duration in %s\n", k)
+	}
+	return def
+}
+
+func envInt64(k string, def int64) int64 {
+	if v := os.Getenv(k); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return n
+		}
+		fmt.Fprintf(os.Stderr, "ignoring invalid integer in %s\n", k)
 	}
 	return def
 }

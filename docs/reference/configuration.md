@@ -16,6 +16,7 @@ All options accept either env vars or flags. Flags override env.
 | `SWSRS_TLS_CERT` / `--tls-cert` | — | PEM cert; with `--tls-key` enables in-process TLS |
 | `SWSRS_TLS_KEY` / `--tls-key` | — | PEM key |
 | `SWSRS_NO_AUTH` / `--no-auth` | `false` | **Dev only** — disable OIDC verification on the admin API |
+| `SWSRS_MAX_FRAME_SIZE` / `--max-frame-size` | `-1` | Max WS frame size (bytes) accepted on the data plane. `-1` = unlimited. Default fits the protocol-agnostic relay model — peers are already authenticated. Set a positive cap (e.g. `67108864` = 64 MB) if you want defence-in-depth against a compromised peer. |
 
 ## OIDC scopes
 
