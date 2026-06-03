@@ -23,22 +23,25 @@ flowchart TB
 
 ## When to use it
 
-The headline use case is **remote debugging and live support for your
-own deployed app.** The pattern: your application links the SDK in;
-when you need to reach a specific user's instance, you mint a session,
-push the responder token to that instance via your existing control
-plane, and connect from your side. The user never installs anything
-extra.
+The shape swsrs is built for: **your software runs on both sides** —
+operator-side and customer-side — and you need them to talk live, across
+a network you don't control. The customer-side app links the SDK in and
+opens a session; the operator-side software connects in. No separate
+tunnel binary, no firewall changes on the customer end, no VPN.
 
-Other scenarios that fit the same shape:
+Concrete scenarios that fit:
 
-- **Diagnostic probe ↔ UI** — a backend service on a customer machine
-  needs to be reachable from a support engineer's browser, but you don't
-  want a VPN.
-- **Webhooks-to-local-dev** — bridge a public webhook into a developer
-  laptop without exposing a port.
-- **Mobile-to-mobile rendezvous** — two phones behind separate NATs,
-  brokered by your cloud.
+- **Remote tuning / configuration** — ECU tuning, hardware
+  calibration, printer/drone/audio-interface setup.
+- **Live diagnostics & support** — pulling logs, profiling, attaching
+  a debugger to a deployed instance.
+- **Interactive installation / activation** — walking through an
+  on-prem setup remotely.
+- **Pair-operation** — two operators acting on the same instance.
+- **Field-engineer-to-deployed-device** — reaching IoT or industrial
+  gear on a customer site.
+- **Webhooks-to-local-dev** — bridge a public webhook into a
+  developer's laptop.
 
 The relay itself does **one thing**: it carries opaque bytes between
 two authenticated peers of one session. Anything you put on the wire

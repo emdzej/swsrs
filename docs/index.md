@@ -4,7 +4,7 @@ layout: home
 hero:
   name: swsrs
   text: Simple WebSocket Relay Service
-  tagline: Embed remote-diagnose and live-support tunnels directly into your Go or TypeScript app — your users never install a CLI, never touch a firewall, never run a VPN. One ~7 MB self-hosted relay in the cloud, an SDK inside the apps you already ship.
+  tagline: Reach your app where it runs — on a customer's laptop, a workshop machine, a field device — without asking them to open ports, run a VPN, or install anything extra. One ~7 MB self-hosted relay in the cloud, an SDK inside the apps you already ship.
   actions:
     - theme: brand
       text: Get started in 3 min
@@ -18,11 +18,11 @@ hero:
 
 features:
   - title: Your app IS the tunnel client
-    details: Go SDK returns a net.Conn that drops straight into grpc.WithContextDialer, http.Transport, crypto/tls. TypeScript SDK works in browser and Node 22+ with zero runtime deps. No separate CLI to ship to your users, no "first install our tunnel utility" step in your support tickets.
-  - title: Built for remote debugging
-    details: A support engineer mints a session, your app on the customer's machine connects out, and you're talking to the user's instance like it was local. No port forwarding. No customer-side daemons. No VPN.
+    details: Go SDK returns a net.Conn that drops straight into grpc.WithContextDialer, http.Transport, crypto/tls. TypeScript SDK works in browser and Node 22+ with zero runtime deps. No separate CLI to ship to your users, no "first install our tunnel utility" step in your instructions.
+  - title: Built for live customer sessions
+    details: Tune, configure, install, support, diagnose — any live workflow where your operator-side software needs to reach an instance of your customer-side software, on a network you don't control. Customer runs the app, opens a session, hands you a token; you connect.
   - title: Two-plane auth
-    details: Admin API gated by OIDC + scopes. Data plane gated by opaque per-slot tokens minted at session creation. Connecting peers never need an IdP identity — exactly fits the support-engineer-to-customer-machine pattern.
+    details: Admin API gated by OIDC + scopes. Data plane gated by opaque per-slot tokens minted at session creation. The party that creates sessions needs an IdP identity; the connecting peers don't. Fits the operator-to-customer-machine pattern exactly.
   - title: Protocol-agnostic relay
     details: Forwards opaque WebSocket binary frames. TCP, UDP, gRPC, SSH, raw bytes — all handled by the SDK or CLI adapters. The server stays auditable and unchanged when you add new protocols.
   - title: Tiny by design
@@ -43,19 +43,19 @@ features:
 
 ## What it's for
 
-You ship an app — a desktop client, a CLI tool, a backend service, an embedded device — and you need a way to **reach into a specific instance running on a user's machine** to debug it, collect diagnostics, or open an interactive session. The usual options are bad:
+You sell software that needs to **reach instances of itself running on customers' machines**. You don't control their network. They can't (or shouldn't have to) expose ports. The usual answers all push the cost onto the customer:
 
-- **VPN / port-forwarding:** asks users to configure networking they shouldn't have to think about.
-- **"Install our debug agent":** another binary to ship, sign, update, and explain.
+- **VPN / port-forwarding:** asks customers to configure networking they shouldn't have to think about.
+- **"Install our agent":** another binary to ship, sign, update, and explain.
 - **SaaS tunnel like ngrok:** routes your customers' data through someone else's infrastructure.
 
-swsrs sits in the gap. **Your app already has the relay client linked in.** When you need to reach an instance, you mint a session, the app on the user's machine opens an outbound WebSocket to your relay, and you connect from your end. No new software on the user's machine, no firewall changes, no VPN, no third-party data path.
+swsrs sits in the gap. **Your customer-side app already has the relay client linked in** — it's the same SDK you'd link in for any other library. When you need to reach an instance, the customer's app opens a session and hands you a token; your operator-side software connects. Nothing new on the customer's machine, no firewall changes, no VPN, no third-party data path.
 
 ```mermaid
 flowchart TB
     relay["<b>swsrs</b> (your cloud)<br/>~7 MB static binary"]
-    peerA["<b>your app</b><br/>on user's machine<br/><i>(SDK linked in)</i>"]
-    peerB["<b>your support tool</b><br/>or browser UI<br/><i>(SDK linked in)</i>"]
+    peerA["<b>your customer-side app</b><br/>on the customer's machine<br/><i>(SDK linked in)</i>"]
+    peerB["<b>your operator UI / tool</b><br/>browser, desktop, CLI<br/><i>(SDK linked in)</i>"]
     peerA -- outbound wss:// --> relay
     peerB -- outbound wss:// --> relay
     peerA -. tunneled traffic .- peerB
@@ -66,35 +66,55 @@ flowchart TB
     class peerA,peerB peer
 ```
 
-## Remote debugging your own app
+## A concrete example
 
-The killer use case. Concretely:
+You sell ECU-tuning software for cars. Picture the flow:
+
+> The customer wants a tune. They run the **client app** you provided — a small Go binary that talks to the ECU over OBD-II. The client app calls into the swsrs SDK and creates a session. The customer messages you the responder token (your control plane could push it automatically — same idea). You open your **tuner UI** in the browser. It uses the swsrs SDK to connect as the initiator. The tuner is now talking live to the ECU on the customer's car. You read maps, write maps, validate against real-time telemetry. Done, hang up, session closes.
+
+What this is NOT:
+
+- It is **not** "the customer installs our tunneling utility." They installed your tuning client. The relay is just a library inside it.
+- It is **not** "we VPN into their network." There's no network access at all — only one specific WebSocket session, gated by a one-time token.
+- It is **not** "our data goes through a SaaS." The relay is yours; the data path is yours.
+
+Swap "ECU tuning" for any of:
+
+- **Hardware tuning / configuration** — printers, drones, audio interfaces, embedded controllers.
+- **Software activation / installation walkthroughs** — interactive setup of complex on-prem deployments.
+- **Live diagnostics / support** — pulling logs, profiling, attaching a debugger to a deployed service.
+- **Remote pair-operation** — two operators acting on the same instance.
+- **Field-engineer-to-deployed-device** — IoT or industrial gear in a customer site.
+
+Same shape every time: a piece of your software on the customer side, a piece of your software on the operator side, a private rendezvous between them.
+
+## How it actually wires up
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Eng as Support engineer
+    participant Op as Operator UI<br/>(your software)
     participant Backend as Your backend
     participant Relay as swsrs relay
-    participant App as Your app<br/>(on user's machine)
+    participant App as Customer-side app<br/>(your software)
 
-    Eng->>Backend: "I need to debug user X's instance"
+    Op->>Backend: "I want to operate on instance X"
     Backend->>Relay: POST /admin/sessions<br/>(OIDC bearer, scope=create)
     Relay-->>Backend: { id, initiator_token, responder_token }
-    Backend->>App: push responder_token<br/>(your existing control plane)
+    Backend->>App: push responder_token<br/>(your existing control plane / out-of-band)
     App->>Relay: WS /relay/{id} with responder_token
-    Eng->>Relay: WS /relay/{id} with initiator_token
-    Note over Eng,App: gRPC / HTTP / SSH / raw bytes —<br/>whatever the app speaks
+    Op->>Relay: WS /relay/{id} with initiator_token
+    Note over Op,App: gRPC / HTTP / OBD-II frames / SSH / raw bytes —<br/>whatever the apps speak between each other
 ```
 
 Notice what's **not** on this diagram:
 
-- A "swsrs CLI" running on the user's machine.
-- A request to open ports on the user's firewall.
+- A "swsrs CLI" running on the customer's machine.
+- A request to open ports on the customer's firewall.
 - A separate tunneling daemon to install and maintain.
 - A third-party SaaS in the data path.
 
-The user's machine has your app. Your app has the SDK. That's the whole story on the customer side.
+The customer's machine has your app. Your app has the SDK. That's the whole story on the customer side.
 
 ## What makes it different
 
