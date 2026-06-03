@@ -45,6 +45,12 @@ export default withMermaid(defineConfig({
           ],
         },
         {
+          text: "Case studies",
+          items: [
+            { text: "Bimmerz Connect", link: "/guide/case-studies/bimmerz" },
+          ],
+        },
+        {
           text: "Architecture",
           items: [
             { text: "How it works", link: "/guide/architecture" },

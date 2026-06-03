@@ -68,9 +68,14 @@ flowchart TB
 
 ## A concrete example
 
-You sell ECU-tuning software for cars. Picture the flow:
+You sell BMW diagnostic and coding software. Picture the flow:
 
-> The customer wants a tune. They run the **client app** you provided — a small Go binary that talks to the ECU over OBD-II. The client app calls into the swsrs SDK and creates a session. The customer messages you the responder token (your control plane could push it automatically — same idea). You open your **tuner UI** in the browser. It uses the swsrs SDK to connect as the initiator. The tuner is now talking live to the ECU on the customer's car. You read maps, write maps, validate against real-time telemetry. Done, hang up, session closes.
+> An owner wants help reading fault codes or applying coding changes. They run the **diagnostic app** you provided — a small Go binary that talks to the ECU over OBD-II. The app calls into the swsrs SDK and creates a session. Your backend pushes the responder token to a more experienced specialist via your existing UX. The specialist opens your **operator UI** in the browser. It uses the swsrs SDK to connect as the initiator. The UI is now talking live to the ECU on the owner's actual car. The specialist reads adaptation values, writes coding changes, validates against real-time telemetry. Done, hang up, session closes.
+
+This isn't hypothetical — it's the real shape of
+[Bimmerz Connect](/guide/case-studies/bimmerz), the production swsrs
+deployment that powers the [bimmerz.app](https://bimmerz.app) suite of
+BMW apps.
 
 What this is NOT:
 
@@ -139,5 +144,21 @@ bash scripts/smoke-chat.sh
 ```
 
 For production: pick an IdP, point `--oidc-issuer` at it, and your clients run `swsrs auth` once. [Step-by-step setup for Keycloak / Auth0 →](/guide/idp/)
+
+## In production
+
+<div style="border:1px solid var(--vp-c-divider); border-radius:12px; padding:1.25rem 1.5rem; margin:1.5rem 0;">
+
+**Bimmerz Connect** — the relay behind [bimmerz.app](https://bimmerz.app)'s
+BMW diagnostic and coding suite. Owners run a diagnostic app at home
+plugged into their car; experienced users connect remotely from a web
+UI and work on the live ECU. Single-instance swsrs against Keycloak,
+running on a small EC2 instance behind Cloudflare.
+
+[Read the case study →](/guide/case-studies/bimmerz)
+
+</div>
+
+*Using swsrs in production? [Open an issue](https://github.com/emdzej/swsrs/issues) — happy to feature you here.*
 
 </div>
