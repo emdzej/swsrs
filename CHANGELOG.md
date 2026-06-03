@@ -141,7 +141,7 @@ not yet API-stable — expect breaking changes before 1.0.
     push to `main` and on plain-semver tags.
   - `release.yml` — GoReleaser cross-build attached to the GitHub Release
     on plain-semver tags. `workflow_dispatch` supports snapshot dry runs.
-  - `npm-publish.yml` — npm Trusted Publishing (OIDC, no `NPM_TOKEN`)
+  - `publish.yml` — npm Trusted Publishing (OIDC, no `NPM_TOKEN`)
     triggered by `npm-<X.Y.Z>` release tags. Skips cleanly if the
     version is already published.
 - `scripts/smoke-chat.sh` — self-contained end-to-end test runnable

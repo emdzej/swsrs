@@ -399,7 +399,7 @@ side receives the other's message. Same script runs in CI.
   Release on the same v-prefixed semver tags. Includes `SHA256SUMS` and
   an auto-generated changelog. `workflow_dispatch` can produce a
   snapshot build without publishing.
-- **`.github/workflows/npm-publish.yml`** — publishes
+- **`.github/workflows/publish.yml`** — publishes
   `@emdzej/swsrs-client` to npm via [Trusted
   Publishing](https://docs.npmjs.com/trusted-publishers) (OIDC, no
   `NPM_TOKEN`) when a GitHub Release is published with a tag of the form

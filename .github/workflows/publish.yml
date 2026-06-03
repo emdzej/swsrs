@@ -8,7 +8,7 @@ name: Publish npm package
 #      from a local terminal, or claim the @emdzej scope.
 #   2. In the package settings on npmjs.com, add a "Trusted Publisher" with:
 #        Repository:       emdzej/swsrs
-#        Workflow filename: npm-publish.yml
+#        Workflow filename: publish.yml
 #        Environment:       (leave blank unless you set one below)
 #
 # Then publishing happens automatically when a GitHub Release is published
