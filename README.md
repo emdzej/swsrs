@@ -1,6 +1,6 @@
 # swsrs — Simple WebSocket Relay Service
 
-**📖 Full docs: [swsrs.emdzej.pl](https://swsrs.emdzej.pl/)**
+**Full docs: [swsrs.emdzej.pl](https://swsrs.emdzej.pl/)**
 
 A minimal, self-hostable WebSocket relay that lets two parties behind NAT or
 firewalls communicate over a single bidirectional tunnel. Similar in spirit

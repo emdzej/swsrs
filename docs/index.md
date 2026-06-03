@@ -17,23 +17,17 @@ hero:
       link: https://github.com/emdzej/swsrs
 
 features:
-  - icon: 🪶
-    title: Tiny by design
+  - title: Tiny by design
     details: A static Go binary, about 7 MB on linux/arm64. Designed to run happily on a $3/month t4g.nano. Multi-stage distroless Docker image too.
-  - icon: 🔐
-    title: Two-plane auth
+  - title: Two-plane auth
     details: Admin API gated by OIDC + scopes. Data plane gated by opaque per-slot tokens minted at session creation. Connecting peers never need an IdP identity — the canonical pattern for support-engineer-to-customer-machine tunnels.
-  - icon: 🧱
-    title: Protocol-agnostic relay
+  - title: Protocol-agnostic relay
     details: Forwards opaque WebSocket binary frames. TCP, UDP, gRPC, SSH, raw bytes — all handled client-side via SDK or CLI adapters. The server stays auditable and unchanged when you add new protocols.
-  - icon: 🧰
-    title: Embed it directly
+  - title: Embed it directly
     details: Go SDK returns a net.Conn that drops into grpc.WithContextDialer, http.Transport, crypto/tls. TypeScript SDK works in browser and Node 22+, zero runtime deps. Your app IS the peer — no CLI on the user's machine.
-  - icon: 🧭
-    title: Zero IdP coordinates on clients
+  - title: Zero IdP coordinates on clients
     details: /.well-known/swsrs-config publishes the IdP endpoints so swsrs auth runs OAuth 2.0 device flow without anyone configuring issuer URLs, client IDs, or scopes manually.
-  - icon: 🚢
-    title: Ready to deploy
+  - title: Ready to deploy
     details: Multi-arch (amd64 + arm64) Docker image at ghcr.io. GoReleaser cross-builds for Linux, macOS, Windows. npm Trusted Publishing (OIDC, no NPM_TOKEN). Single git tag releases everything.
 
 ---
