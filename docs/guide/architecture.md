@@ -20,11 +20,22 @@ This split is load-bearing. See [Authentication](/guide/auth) for the why.
 
 A **session** is a two-slot rendezvous:
 
-```
-pending  ──peer attaches──▶  half_open  ──counterpart attaches──▶  open
-   │                              │                                 │
-   │                              │                                 │
-   └──TTL expires──▶  closed  ◀──peer disconnects + no reconnect────┘
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> pending
+    pending: pending
+    half_open: half_open
+    open: open
+    closed: closed
+
+    pending --> half_open : peer attaches
+    half_open --> open : counterpart attaches
+    open --> half_open : a peer disconnects (within grace)
+    half_open --> closed : grace expired, no reconnect
+    open --> closed : both peers gone
+    pending --> closed : TTL / peer-wait expires
+    closed --> [*]
 ```
 
 - States: `pending` → `half_open` → `open` → `closed`.

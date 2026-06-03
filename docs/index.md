@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: swsrs
-  text: Tunnel two peers behind NAT through a tiny self-hosted relay.
-  tagline: One ~7 MB binary. OIDC-gated admin, opaque per-slot tokens on the wire. First-class Go and TypeScript SDKs so your app becomes the peer — no extra daemons to install.
+  text: Simple WebSocket Relay Service
+  tagline: Tunnel two peers behind NAT through a tiny self-hosted relay. One ~7 MB binary. OIDC-gated admin, opaque per-slot tokens on the wire. First-class Go and TypeScript SDKs so your app becomes the peer — no extra daemons to install.
   actions:
     - theme: brand
       text: Get started in 3 min

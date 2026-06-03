@@ -8,20 +8,14 @@ to [wstunnel](https://github.com/erebe/wstunnel), but with orchestrated
 sessions and a clean separation between the **admin plane** (OIDC-protected)
 and the **data plane** (opaque per-slot tokens).
 
-```
-                ┌────────────────────┐
-                │   swsrs (cloud)    │
-                │  one small binary  │
-                └─────────▲──────────┘
-                          │ wss://
-            ┌─────────────┴─────────────┐
-            │                           │
-       outbound WS                  outbound WS
-            │                           │
-   ┌────────┴────────┐         ┌────────┴────────┐
-   │   peer A        │         │   peer B        │
-   │  (behind NAT)   │ <─────> │  (behind NAT)   │
-   └─────────────────┘  relay  └─────────────────┘
+```mermaid
+flowchart TB
+    relay["<b>swsrs</b> (cloud)<br/>one small binary"]
+    peerA["peer A<br/>behind NAT"]
+    peerB["peer B<br/>behind NAT"]
+    peerA -- outbound wss:// --> relay
+    peerB -- outbound wss:// --> relay
+    peerA -. bytes flow .- peerB
 ```
 
 ## Why
@@ -169,20 +163,25 @@ All options accept either env vars or flags. Flags override env.
 
 swsrs has **two independent auth domains**, by design:
 
-```
-┌──────────────────────────────────┐    ┌──────────────────────────────────┐
-│ Admin plane  /admin/sessions     │    │ Data plane  /relay/{id}          │
-│                                  │    │                                  │
-│  OIDC JWT (Bearer)               │    │  Opaque per-slot token (Bearer   │
-│   ├─ JWKS auto-discovery from    │    │   or ?token= query)              │
-│   │  $SWSRS_OIDC_ISSUER          │    │                                  │
-│   ├─ Audience checked against    │    │  Minted by the admin API at      │
-│   │  $SWSRS_OIDC_AUDIENCE        │    │  session creation; 128-bit       │
-│   └─ Scope check per route       │    │  random; constant-time compared  │
-│                                  │    │                                  │
-│  Operators / control planes      │    │  Peers (machines, browsers)      │
-│  authenticate with the IdP       │    │  authenticate with the token     │
-└──────────────────────────────────┘    └──────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph admin["<b>Admin plane</b> — /admin/sessions"]
+        direction TB
+        a1["OIDC JWT (Bearer)"]
+        a2["JWKS auto-discovery<br/>from SWSRS_OIDC_ISSUER"]
+        a3["Audience checked against<br/>SWSRS_OIDC_AUDIENCE"]
+        a4["Scope check per route"]
+        a5["<i>Operators / control planes<br/>authenticate with the IdP</i>"]
+        a1 --- a2 --- a3 --- a4 --- a5
+    end
+    subgraph data["<b>Data plane</b> — /relay/{id}"]
+        direction TB
+        d1["Opaque per-slot token<br/>(Bearer or ?token=)"]
+        d2["Minted by the admin API<br/>at session creation"]
+        d3["128-bit random,<br/>constant-time compared"]
+        d4["<i>Peers (machines, browsers)<br/>authenticate with the token</i>"]
+        d1 --- d2 --- d3 --- d4
+    end
 ```
 
 **Why split?** Connecting peers may not have IdP identities — the canonical

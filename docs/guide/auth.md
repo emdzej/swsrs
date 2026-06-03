@@ -2,20 +2,31 @@
 
 swsrs has **two independent auth domains**, by design.
 
-```
-┌──────────────────────────────────┐    ┌──────────────────────────────────┐
-│ Admin plane  /admin/sessions     │    │ Data plane  /relay/{id}          │
-│                                  │    │                                  │
-│  OIDC JWT (Bearer)               │    │  Opaque per-slot token (Bearer   │
-│   • JWKS auto-discovery from     │    │   or ?token= query)              │
-│     SWSRS_OIDC_ISSUER            │    │                                  │
-│   • Audience = SWSRS_OIDC_       │    │  Minted by the admin API at      │
-│     AUDIENCE                     │    │  session creation; 128-bit       │
-│   • Scope check per route        │    │  random; constant-time compared  │
-│                                  │    │                                  │
-│  Operators / control planes      │    │  Peers (machines, browsers)      │
-│  authenticate with the IdP       │    │  authenticate with the token     │
-└──────────────────────────────────┘    └──────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph admin["<b>Admin plane</b> — /admin/sessions"]
+        direction TB
+        a1["OIDC JWT (Bearer)"]
+        a2["JWKS auto-discovery<br/>from SWSRS_OIDC_ISSUER"]
+        a3["Audience checked against<br/>SWSRS_OIDC_AUDIENCE"]
+        a4["Scope check per route"]
+        a5["<i>Operators / control planes<br/>authenticate with the IdP</i>"]
+        a1 --- a2 --- a3 --- a4 --- a5
+    end
+    subgraph data["<b>Data plane</b> — /relay/{id}"]
+        direction TB
+        d1["Opaque per-slot token<br/>(Bearer or ?token=)"]
+        d2["Minted by the admin API<br/>at session creation"]
+        d3["128-bit random,<br/>constant-time compared"]
+        d4["<i>Peers (machines, browsers)<br/>authenticate with the token</i>"]
+        d1 --- d2 --- d3 --- d4
+    end
+
+    classDef plane fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    classDef leaf  fill:#fff,stroke:#cbd5e1,color:#0f172a
+    class admin,data plane
+    class a1,a2,a3,a4,a5,d1,d2,d3,d4 leaf
+    linkStyle default stroke:#94a3b8,stroke-width:1px
 ```
 
 **Why split?** Connecting peers may not have IdP identities — the
