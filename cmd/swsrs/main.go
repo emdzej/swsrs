@@ -1,4 +1,4 @@
-// Command swsrs is the simple websocket relay service.
+// Command swsrs is the Simple WebSocket Relay Service.
 //
 // Subcommands:
 //
@@ -22,7 +22,7 @@ var (
 	date    = "unknown"
 )
 
-const usage = `swsrs - simple websocket relay service
+const usage = `swsrs - Simple WebSocket Relay Service
 
 Usage:
   swsrs <command> [flags]

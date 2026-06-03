@@ -1,4 +1,4 @@
-# swsrs — simple websocket relay service
+# swsrs — Simple WebSocket Relay Service
 
 **📖 Full docs: [swsrs.emdzej.pl](https://swsrs.emdzej.pl/)**
 

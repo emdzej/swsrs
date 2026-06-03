@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "swsrs",
   description:
-    "Simple WebSocket relay service: tunnel two parties behind NAT through a tiny self-hostable relay.",
+    "Simple WebSocket Relay Service: tunnel two parties behind NAT through a tiny self-hostable relay.",
   cleanUrls: true,
   lastUpdated: true,
   sitemap: { hostname: "https://swsrs.emdzej.pl" },
@@ -11,7 +11,7 @@ export default defineConfig({
   head: [
     ["link", { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }],
     ["meta", { name: "theme-color", content: "#2563eb" }],
-    ["meta", { property: "og:title", content: "swsrs — simple websocket relay service" }],
+    ["meta", { property: "og:title", content: "swsrs — Simple WebSocket Relay Service" }],
     ["meta", { property: "og:description", content: "Connect two parties behind NAT or firewalls through a single bidirectional WebSocket tunnel. Self-hostable. ~7 MB ARM64 binary." }],
     ["meta", { property: "og:url", content: "https://swsrs.emdzej.pl/" }],
     ["meta", { name: "twitter:card", content: "summary" }],
