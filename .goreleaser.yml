@@ -1,0 +1,100 @@
+# GoReleaser config — see https://goreleaser.com
+# Validate locally with: goreleaser check
+# Dry-run locally with:  goreleaser release --snapshot --clean
+version: 2
+
+project_name: swsrs
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: swsrs
+    main: ./cmd/swsrs
+    binary: swsrs
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .Date }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows on ARM64 is rarely useful; skip until asked.
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: swsrs
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    formats: ['tar.gz']
+    format_overrides:
+      - goos: windows
+        formats: ['zip']
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-next'
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: emdzej
+    name: swsrs
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## swsrs {{ .Tag }}
+
+    Standalone binaries for Linux, macOS, and Windows. The relay also ships
+    as a multi-arch Docker image at `ghcr.io/emdzej/swsrs:{{ .Tag }}`.
+
+    Verify downloads against `checksums.txt`:
+    ```
+    sha256sum -c checksums.txt
+    ```
+
+    See [CHANGELOG.md](https://github.com/emdzej/swsrs/blob/{{ .Tag }}/CHANGELOG.md) for the curated change list.

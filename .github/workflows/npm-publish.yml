@@ -1,0 +1,84 @@
+name: Publish npm package
+
+# Trusted Publishing: this workflow uses OIDC instead of an NPM_TOKEN.
+# pnpm publish supports `--provenance` and trusted publishing since pnpm 9.4.
+#
+# Before this works you must configure the package on npmjs.com:
+#   1. Create the (empty) package once with `pnpm publish --access public`
+#      from a local terminal, or claim the @emdzej scope.
+#   2. In the package settings on npmjs.com, add a "Trusted Publisher" with:
+#        Repository:       emdzej/swsrs
+#        Workflow filename: npm-publish.yml
+#        Environment:       (leave blank unless you set one below)
+#
+# Then publishing happens automatically when a GitHub Release is published
+# whose tag matches `npm-*` (e.g. tag `npm-0.2.1` -> publishes 0.2.1).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # required for npm trusted publishing (OIDC)
+
+jobs:
+  publish:
+    # Only run for npm-prefixed tags so Docker releases (e.g. `1.2.3`) don't
+    # accidentally trigger an npm publish.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'npm-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Verify package version matches release tag
+        if: github.event_name == 'release'
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          want="${tag#npm-}"
+          got=$(node -p "require('./clients/typescript/package.json').version")
+          if [ "$want" != "$got" ]; then
+            echo "release tag $tag -> $want, but clients/typescript/package.json says $got"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @emdzej/swsrs-client run build
+
+      # If the version was already published manually (or by a prior run),
+      # skip cleanly instead of failing the workflow. Treats only the
+      # specific "version exists" condition as success; any other npm error
+      # still surfaces.
+      - name: Check whether this version is already on npm
+        id: npm-check
+        run: |
+          name=$(node -p "require('./clients/typescript/package.json').name")
+          version=$(node -p "require('./clients/typescript/package.json').version")
+          echo "Checking $name@$version on npm..."
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version already published — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "$name@$version not on npm yet — will publish."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: pnpm publish
+        if: steps.npm-check.outputs.skip != 'true'
+        run: pnpm --filter @emdzej/swsrs-client publish --provenance --access public --no-git-checks
+        env:
+          # No NPM_TOKEN — trusted publishing uses the workflow's OIDC token.
+          NODE_AUTH_TOKEN: ''

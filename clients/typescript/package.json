@@ -1,0 +1,44 @@
+{
+  "name": "@emdzej/swsrs-client",
+  "version": "0.1.0",
+  "description": "Client SDK for swsrs (simple websocket relay service): admin API + peer connection helpers for browser and Node 22+.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepack": "pnpm run clean && pnpm run build"
+  },
+  "packageManager": "pnpm@10.33.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "websocket",
+    "relay",
+    "tunnel",
+    "swsrs",
+    "nat-traversal"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emdzej/swsrs.git",
+    "directory": "clients/typescript"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "sideEffects": false
+}

@@ -1,0 +1,36 @@
+# Local development compose for swsrs.
+#
+# Provide an OIDC issuer via .env or shell:
+#   SWSRS_OIDC_ISSUER=https://your-idp/realms/foo
+#   SWSRS_OIDC_AUDIENCE=swsrs
+#
+# Then:
+#   docker compose up
+#
+# For TLS, mount a cert+key into /certs and uncomment the TLS env vars below.
+
+services:
+  swsrs:
+    image: ghcr.io/emdzej/swsrs:latest
+    # To build locally instead of pulling:
+    # build:
+    #   context: .
+    ports:
+      - "8080:8080"
+    environment:
+      SWSRS_ADDR: ":8080"
+      SWSRS_OIDC_ISSUER: ${SWSRS_OIDC_ISSUER:?set SWSRS_OIDC_ISSUER}
+      SWSRS_OIDC_AUDIENCE: ${SWSRS_OIDC_AUDIENCE:-}
+      SWSRS_SESSION_TTL: ${SWSRS_SESSION_TTL:-1h}
+      SWSRS_PEER_WAIT: ${SWSRS_PEER_WAIT:-2m}
+      SWSRS_PUBLIC_BASE_URL: ${SWSRS_PUBLIC_BASE_URL:-}
+      # SWSRS_TLS_CERT: /certs/cert.pem
+      # SWSRS_TLS_KEY:  /certs/key.pem
+    # volumes:
+    #   - ./certs:/certs:ro
+    restart: unless-stopped
+    healthcheck:
+      # No shell or curl in distroless — but the binary has no built-in
+      # healthcheck either. Use Docker's TCP probe via a sidecar in prod;
+      # locally we rely on the ports being mapped.
+      disable: true

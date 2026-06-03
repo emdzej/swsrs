@@ -1,0 +1,50 @@
+name: Release
+
+# Triggered by plain-semver tags (no 'v' prefix), same as the Docker workflow.
+# One `git tag 1.2.3 && git push --tags` produces both:
+#   - GitHub Release with cross-platform binaries (this workflow)
+#   - Multi-arch Docker image at ghcr.io/emdzej/swsrs:1.2.3 (docker.yml)
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: 'Run as snapshot (build artifacts only, no GitHub Release)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # to create the Release and upload assets
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # goreleaser needs full history for changelog
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+          cache: true
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: >-
+            release --clean
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.snapshot) && '--snapshot' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload snapshot artifacts
+        if: github.event_name == 'workflow_dispatch' && inputs.snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: swsrs-snapshot
+          path: dist/*
+          retention-days: 7

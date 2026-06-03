@@ -1,0 +1,9 @@
+/swsrs
+*.test
+*.out
+.env
+
+# TS / pnpm
+node_modules/
+dist/
+*.tgz

@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+clients/
+*.md
+docker-compose*.yml
+Dockerfile
+.dockerignore
+.gitignore
+dist/
+node_modules/
+*.test
+*.out
