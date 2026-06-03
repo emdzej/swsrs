@@ -10,7 +10,34 @@ applies to.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added — Client auth flow (so clients don't need IdP coordinates)
+
+- **Server** — `GET /.well-known/swsrs-config` returns the relay's issuer,
+  audience, scopes, IdP endpoints (`authorization_endpoint`,
+  `token_endpoint`, `device_authorization_endpoint`) and an optional
+  shared `client_id_hint`. Public; gated to 404 when the server runs
+  `--no-auth`.
+- **Server** — new `--oidc-client-id` flag / `SWSRS_OIDC_CLIENT_ID` env
+  for surfacing the shared OAuth client_id via discovery.
+- **Go SDK** — new `pkg/client/auth` subpackage:
+  - `auth.Discover(ctx, relayURL)` → parsed `*Config`, with
+    `ErrAuthDisabled` sentinel for `--no-auth` servers.
+  - `cfg.DeviceLogin(ctx, opts)` runs RFC 8628 device flow via
+    `golang.org/x/oauth2`; `OnPrompt` callback for caller-side rendering.
+  - `TokenStore` interface + `FileTokenStore` (atomic write, mode 0600,
+    OS-appropriate default path).
+  - `AdminTokenSource(cfg, store)` produces a refresh-aware
+    `client.TokenSource` for `client.Admin.Token`. Errors when refresh
+    fails or no token is cached — never silently re-prompts.
+- **CLI** — new `swsrs auth` subcommand drives discovery + device flow,
+  saves credentials. `--logout` clears the cached file. `swsrs create`
+  now auto-loads from the credentials cache when `--oidc-token` is omitted.
+- **TS SDK** — new `discoverConfig`, `deviceLogin`, `MemoryTokenStore`,
+  and `TokenStore`/`RelayConfig`/`TokenResponse`/`DevicePrompt`/
+  `DeviceLoginOptions` exports on the main entry. `AuthDisabledError`
+  sentinel for `--no-auth` servers. New subpath export
+  `@emdzej/swsrs-client/node` provides `FileTokenStore` and
+  `defaultCredentialsPath()` using `node:fs`.
 
 ## [0.1.0] — 2026-06-03
 

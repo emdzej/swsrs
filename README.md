@@ -159,6 +159,7 @@ All options accept either env vars or flags. Flags override env.
 | `SWSRS_TLS_CERT` / `--tls-cert` | — | PEM cert; with `--tls-key` enables in-process TLS |
 | `SWSRS_TLS_KEY` / `--tls-key` | — | PEM key |
 | `SWSRS_NO_AUTH` / `--no-auth` | `false` | **Dev only** — disable OIDC verification on the admin API |
+| `SWSRS_OIDC_CLIENT_ID` / `--oidc-client-id` | — | Shared OAuth `client_id` surfaced via `/.well-known/swsrs-config` (clients use this with device flow) |
 
 ## Authentication & authorization
 
@@ -248,6 +249,52 @@ What a token grants:
 
 Once the session is closed or `expires_at` passes, the tokens are useless.
 
+### Client login flow — discovery + device code
+
+So clients don't need to hard-code the IdP URL, swsrs publishes a small
+discovery document:
+
+```
+GET /.well-known/swsrs-config         (public; no auth required)
+→ { issuer, audience, scopes,
+    authorization_endpoint, token_endpoint, device_authorization_endpoint,
+    client_id_hint }
+```
+
+The CLI uses it to run the OAuth 2.0 **device authorization grant**
+(RFC 8628) end-to-end without browser redirects or callback URLs:
+
+```bash
+swsrs auth --relay https://relay.example.com
+
+# discovering OIDC config from https://relay.example.com ...
+#
+#   1. open this URL on any device:
+#        https://idp.example.com/device?user_code=WDJB-MJHT
+#
+#   2. enter code: WDJB-MJHT
+#
+#   (waiting; code expires at 2026-06-03T11:45:00Z)
+#
+# ✓ saved token to ~/.config/swsrs/credentials.json (access token expires in 59m54s)
+```
+
+Subsequent commands (`swsrs create`, etc.) pick up the cached token
+automatically. Tokens are refreshed transparently when the IdP supplies a
+refresh token; otherwise the command exits with a clear error pointing the
+user back at `swsrs auth`.
+
+Server side, you need to register **one** OAuth client (public, device-flow
+enabled) at your IdP and pass its id via `--oidc-client-id`. All swsrs
+clients of this deployment share that single client_id — the rendezvous
+party is the deployment, not the individual user. If you don't surface a
+`client_id_hint`, library callers must supply their own.
+
+**Browser apps:** device flow is generally NOT browser-compatible (token
+endpoints are rarely CORS-enabled for device flow). Run your own auth-code
++ PKCE flow with an IdP-supported library and pass the token to
+`AdminClient` directly.
+
 ### Local development — `--no-auth`
 
 For local testing without standing up an IdP:
@@ -276,6 +323,7 @@ in production — session and OIDC tokens both travel in `Authorization`.
 
 ```
 swsrs serve           run the relay server
+swsrs auth            log in via OIDC device flow (saves credentials.json)
 swsrs create          create a session (uses the admin API)
 swsrs tcp-listen      accept local TCP and tunnel through the relay
 swsrs tcp-dial        receive a relayed connection and dial a local TCP target

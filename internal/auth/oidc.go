@@ -17,6 +17,18 @@ import (
 type Verifier struct {
 	verifier *oidc.IDTokenVerifier
 	audience string
+	issuer   string
+	// IdP endpoints captured from the discovery document for surfacing
+	// via /.well-known/swsrs-config. Empty if the IdP doesn't advertise them.
+	endpoints IdPEndpoints
+}
+
+// IdPEndpoints holds the subset of OIDC discovery fields that clients need
+// to drive OAuth flows themselves.
+type IdPEndpoints struct {
+	AuthorizationEndpoint       string `json:"authorization_endpoint,omitempty"`
+	TokenEndpoint               string `json:"token_endpoint,omitempty"`
+	DeviceAuthorizationEndpoint string `json:"device_authorization_endpoint,omitempty"`
 }
 
 // NewVerifier autodiscovers OIDC config from issuer URL and returns a
@@ -31,11 +43,36 @@ func NewVerifier(ctx context.Context, issuer, audience string) (*Verifier, error
 		// SkipClientIDCheck if audience is empty — useful for dev/test only.
 		SkipClientIDCheck: audience == "",
 	}
+
+	// Capture endpoints we want to expose to clients. The provider's
+	// public Endpoint() gives auth + token; device_authorization_endpoint
+	// only lives in the raw discovery doc.
+	ep := provider.Endpoint()
+	var raw struct {
+		DeviceAuthorizationEndpoint string `json:"device_authorization_endpoint"`
+	}
+	_ = provider.Claims(&raw)
+
 	return &Verifier{
 		verifier: provider.Verifier(cfg),
 		audience: audience,
+		issuer:   issuer,
+		endpoints: IdPEndpoints{
+			AuthorizationEndpoint:       ep.AuthURL,
+			TokenEndpoint:               ep.TokenURL,
+			DeviceAuthorizationEndpoint: raw.DeviceAuthorizationEndpoint,
+		},
 	}, nil
 }
+
+// Issuer returns the configured issuer URL.
+func (v *Verifier) Issuer() string { return v.issuer }
+
+// Audience returns the configured audience (empty if disabled).
+func (v *Verifier) Audience() string { return v.audience }
+
+// Endpoints returns the IdP endpoints captured at discovery time.
+func (v *Verifier) Endpoints() IdPEndpoints { return v.endpoints }
 
 // Claims holds the fields we care about from a verified token.
 type Claims struct {

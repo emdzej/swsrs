@@ -15,6 +15,7 @@ import (
 
 	"github.com/emdzej/swsrs/internal/admin"
 	"github.com/emdzej/swsrs/internal/auth"
+	"github.com/emdzej/swsrs/internal/discovery"
 	"github.com/emdzej/swsrs/internal/relay"
 	"github.com/emdzej/swsrs/internal/session"
 )
@@ -23,6 +24,7 @@ type serveConfig struct {
 	Addr            string
 	OIDCIssuer      string
 	OIDCAudience    string
+	OIDCClientID    string
 	SessionTTL      time.Duration
 	PeerWaitTimeout time.Duration
 	ReapInterval    time.Duration
@@ -38,6 +40,7 @@ func runServe(args []string) int {
 		Addr:            envOr("SWSRS_ADDR", ":8080"),
 		OIDCIssuer:      os.Getenv("SWSRS_OIDC_ISSUER"),
 		OIDCAudience:    os.Getenv("SWSRS_OIDC_AUDIENCE"),
+		OIDCClientID:    os.Getenv("SWSRS_OIDC_CLIENT_ID"),
 		SessionTTL:      envDuration("SWSRS_SESSION_TTL", 1*time.Hour),
 		PeerWaitTimeout: envDuration("SWSRS_PEER_WAIT", 2*time.Minute),
 		ReapInterval:    envDuration("SWSRS_REAP_INTERVAL", 30*time.Second),
@@ -54,6 +57,7 @@ func runServe(args []string) int {
 	fs.StringVar(&cfg.Addr, "addr", cfg.Addr, "listen address")
 	fs.StringVar(&cfg.OIDCIssuer, "oidc-issuer", cfg.OIDCIssuer, "OIDC issuer URL (autodiscovery)")
 	fs.StringVar(&cfg.OIDCAudience, "oidc-audience", cfg.OIDCAudience, "expected audience (client_id)")
+	fs.StringVar(&cfg.OIDCClientID, "oidc-client-id", cfg.OIDCClientID, "shared OAuth client_id surfaced via /.well-known/swsrs-config (optional)")
 	fs.DurationVar(&cfg.SessionTTL, "session-ttl", cfg.SessionTTL, "max session lifetime")
 	fs.DurationVar(&cfg.PeerWaitTimeout, "peer-wait", cfg.PeerWaitTimeout, "how long to wait for the other peer")
 	fs.StringVar(&cfg.PublicBaseURL, "public-base-url", cfg.PublicBaseURL, "public ws(s):// URL for connect links in admin responses")
@@ -104,6 +108,11 @@ func runServe(args []string) int {
 		PeerWaitTimeout: cfg.PeerWaitTimeout,
 		AllowedOrigins:  cfg.AllowedOrigins,
 	}).Register(mux)
+	mux.Handle("GET /.well-known/swsrs-config", discovery.Handler(
+		verifier,
+		[]string{admin.ScopeCreate, admin.ScopeRead, admin.ScopeDelete},
+		cfg.OIDCClientID,
+	))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))

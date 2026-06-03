@@ -29,6 +29,7 @@ Usage:
 
 Commands:
   serve         run the relay server
+  auth          log in to the relay's IdP via OAuth device flow
   create        create a session (uses the admin API)
   tcp-listen    accept local TCP connections and tunnel them through the relay
   tcp-dial      receive a relayed connection and dial a local TCP target
@@ -47,6 +48,8 @@ func main() {
 	switch cmd {
 	case "serve":
 		os.Exit(runServe(args))
+	case "auth":
+		os.Exit(runAuth(args))
 	case "create":
 		os.Exit(runCreate(args))
 	case "tcp-listen":

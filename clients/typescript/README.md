@@ -128,6 +128,48 @@ interface PeerConnection {
 }
 ```
 
+## Auth helpers
+
+Don't have an OIDC token? Discover the relay's IdP and run device flow:
+
+```ts
+import { discoverConfig, deviceLogin, AdminClient } from "@emdzej/swsrs-client";
+import { FileTokenStore } from "@emdzej/swsrs-client/node"; // Node only
+
+const config = await discoverConfig("https://relay.example.com");
+// config.issuer, config.token_endpoint, config.device_authorization_endpoint, ...
+
+const tok = await deviceLogin({
+  config,
+  onPrompt: (p) => {
+    console.log(`Visit ${p.verificationUri} and enter ${p.userCode}`);
+  },
+});
+
+const store = new FileTokenStore();        // defaults to ~/.config/swsrs/credentials.json
+await store.save(tok);
+
+const admin = new AdminClient({
+  baseURL: "https://relay.example.com",
+  token: async () => {
+    const t = await store.load();
+    if (!t) throw new Error("no token; run device login again");
+    return t.access_token;
+  },
+});
+```
+
+`discoverConfig()` throws `AuthDisabledError` when the server is running
+with `--no-auth` — callers can treat that as "no token needed".
+
+### Browser caveat
+
+`deviceLogin()` runs in Node and in Electron, but most IdPs **don't enable
+CORS** on the token endpoint for device flow (it was designed for CLIs).
+If you call it from a browser context you'll see a CORS error. Browser
+apps should run their own auth-code + PKCE flow with an IdP-supported
+library and pass the resulting access token to `AdminClient.token`.
+
 ## Known limitations
 
 - **No transparent reconnect** within the peer-wait grace window.

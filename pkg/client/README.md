@@ -119,6 +119,43 @@ client.DialOptions{
 }
 ```
 
+## Auth helpers (`pkg/client/auth`)
+
+When you don't already have an OIDC token in hand, the `auth` subpackage
+runs discovery + device flow against the IdP swsrs is configured for:
+
+```go
+import (
+    "github.com/emdzej/swsrs/pkg/client"
+    "github.com/emdzej/swsrs/pkg/client/auth"
+)
+
+cfg, err := auth.Discover(ctx, "https://relay.example.com")
+// cfg.Issuer, cfg.TokenEndpoint, cfg.DeviceAuthorizationEndpoint, ...
+
+tok, err := cfg.DeviceLogin(ctx, auth.DeviceLoginOptions{
+    OnPrompt: func(p auth.DevicePrompt) {
+        fmt.Printf("Visit %s and enter %s\n", p.VerificationURI, p.UserCode)
+    },
+})
+
+store := &auth.FileTokenStore{}            // default path: $XDG_CONFIG_HOME/swsrs/credentials.json
+_ = store.Save(ctx, tok)
+
+admin := &client.Admin{
+    BaseURL: "https://relay.example.com",
+    Token:   auth.AdminTokenSource(cfg, store),  // refreshes transparently
+}
+```
+
+`AdminTokenSource` returns a `client.TokenSource` compatible with the
+existing `Admin.Token` field. It refreshes when the IdP supplied a
+refresh token; when refresh fails (or no token is cached) it returns an
+error pointing at `swsrs auth` rather than silently re-prompting.
+
+If the server is running with `--no-auth`, `Discover` returns
+`auth.ErrAuthDisabled` — callers can treat that as "no token needed".
+
 ## Known limitations
 
 - **No transparent reconnect** within the peer-wait grace window. A dropped WS
