@@ -81,7 +81,7 @@ not yet API-stable — expect breaking changes before 1.0.
 
 ### Added — Distribution & release
 
-- Multi-stage `Dockerfile` (distroless/static, non-root, ~7 MB on ARM64).
+- Multi-stage `Dockerfile` (distroless/static, non-root, about 7 MB on ARM64).
 - `docker-compose.yml` for local runs with env-driven config.
 - GoReleaser cross-builds: `linux/{amd64,arm64}`, `darwin/{amd64,arm64}`,
   `windows/amd64`. Stripped, trimpath, version metadata injected via

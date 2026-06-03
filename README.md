@@ -24,8 +24,8 @@ and the **data plane** (opaque per-slot tokens).
 
 ## Why
 
-- **Cheap to run** — single static Go binary, ~7 MB on ARM. Designed to fit
-  on a `t4g.nano` (~$3/mo).
+- **Cheap to run** — single static Go binary, about 7 MB on ARM. Designed to
+  fit on a `t4g.nano` (around $3/mo).
 - **Protocol-agnostic** — the server forwards opaque WebSocket binary frames.
   TCP/UDP semantics, gRPC, SSH, anything — handled by client-side adapters or
   the SDK, never the server.
