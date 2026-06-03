@@ -402,8 +402,10 @@ side receives the other's message. Same script runs in CI.
 - **`.github/workflows/publish.yml`** — publishes
   `@emdzej/swsrs-client` to npm via [Trusted
   Publishing](https://docs.npmjs.com/trusted-publishers) (OIDC, no
-  `NPM_TOKEN`) when a GitHub Release is published with a tag of the form
-  `npm-v<X.Y.Z>` (e.g. `npm-v0.2.1`).
+  `NPM_TOKEN`). Fires on the same `v<X.Y.Z>` tag as the other release
+  workflows. The version in `clients/typescript/package.json` must match
+  the tag (the workflow fails fast otherwise); already-published versions
+  are skipped cleanly.
 
 A single `git tag v1.2.3 && git push --tags` therefore produces, in
 parallel:
@@ -411,11 +413,11 @@ parallel:
   2. A multi-arch Docker image at `ghcr.io/emdzej/swsrs:1.2.3` (`docker.yml`)
   3. A Go module version `v1.2.3` resolvable with
      `go get github.com/emdzej/swsrs/pkg/client@v1.2.3`
+  4. `@emdzej/swsrs-client@1.2.3` published to npm (`publish.yml`)
 
-The npm package is released independently via `npm-v<X.Y.Z>` tags so the
-TS and Go/binary versioning streams stay decoupled. The `npm-v` prefix
-keeps those tags clearly distinct from the Go/Docker release tags
-(`vX.Y.Z`).
+If you bump the binary without changing the TS SDK, leave
+`clients/typescript/package.json` at the new version too — the npm
+publish step is a no-op when that version already exists on npm.
 
 ## Releases
 

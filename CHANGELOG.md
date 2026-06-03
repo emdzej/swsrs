@@ -147,12 +147,11 @@ Builds on the 0.1.0 preview (which shipped the basic SDK surface).
 
 ### Changed — Release tag convention
 
-- Git tags for the binary, Docker image, and Go module are
-  **`vX.Y.Z`** (v-prefixed, matching Go module conventions). Docker
-  image tags remain bare (`1.2.3`); only the *git* tag carries the
-  `v`.
-- npm package release tags are **`npm-vX.Y.Z`**, distinct from
-  Go/Docker release tags.
+- Git tags for the binary, Docker image, Go module, **and the npm
+  package** are **`vX.Y.Z`** (v-prefixed, matching Go module
+  conventions). A single tag triggers all four release pipelines.
+- Docker image tags remain bare (`1.2.3`); only the *git* tag carries
+  the `v`.
 
 ### Known limitations
 
