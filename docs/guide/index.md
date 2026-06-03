@@ -23,6 +23,15 @@ flowchart TB
 
 ## When to use it
 
+The headline use case is **remote debugging and live support for your
+own deployed app.** The pattern: your application links the SDK in;
+when you need to reach a specific user's instance, you mint a session,
+push the responder token to that instance via your existing control
+plane, and connect from your side. The user never installs anything
+extra.
+
+Other scenarios that fit the same shape:
+
 - **Diagnostic probe ↔ UI** — a backend service on a customer machine
   needs to be reachable from a support engineer's browser, but you don't
   want a VPN.
@@ -31,9 +40,10 @@ flowchart TB
 - **Mobile-to-mobile rendezvous** — two phones behind separate NATs,
   brokered by your cloud.
 
-The relay does **one thing**: it carries opaque bytes between two
-authenticated peers of one session. Anything you put on the wire is fine —
-TCP, UDP, gRPC, SSH, raw frames.
+The relay itself does **one thing**: it carries opaque bytes between
+two authenticated peers of one session. Anything you put on the wire
+is fine — TCP, UDP, gRPC, SSH, raw frames. Your app picks the protocol;
+the server doesn't know or care.
 
 ## What's in the box
 
