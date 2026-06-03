@@ -152,8 +152,7 @@ For production: pick an IdP, point `--oidc-issuer` at it, and your clients run `
 **Bimmerz Connect** — the relay behind [bimmerz.app](https://bimmerz.app)'s
 BMW diagnostic and coding suite. Owners run a diagnostic app at home
 plugged into their car; experienced users connect remotely from a web
-UI and work on the live ECU. Single-instance swsrs against Keycloak,
-running on a small EC2 instance behind Cloudflare.
+UI and work on the live ECU.
 
 [Read the case study →](/guide/case-studies/bimmerz)
 

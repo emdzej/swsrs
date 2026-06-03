@@ -87,12 +87,10 @@ A few things lined up:
 
 3. **The data path stays Bimmerz's.** ECU data — fault codes, VINs,
    adaptation maps — never leaves infrastructure Bimmerz controls.
-   That's not negotiable when you're touching someone's car. The
-   relay itself runs on a small EC2 instance behind Cloudflare.
+   That's not negotiable when you're touching someone's car.
 
 4. **Tiny operational surface.** Bimmerz Connect is one ~7 MB binary,
-   deployed as a Docker image. Cost is measured in dollars per month.
-   Operationally it's a non-event.
+   deployed as a Docker image. Operationally it's a non-event.
 
 5. **Open extension path.** New ECU protocols, new app variants, new
    operator tools — all of them are SDK consumers. The relay doesn't
