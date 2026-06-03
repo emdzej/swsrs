@@ -7,3 +7,7 @@
 node_modules/
 dist/
 *.tgz
+
+# VitePress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/

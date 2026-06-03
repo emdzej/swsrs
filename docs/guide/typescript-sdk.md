@@ -1,0 +1,134 @@
+# TypeScript SDK
+
+`@emdzej/swsrs-client`
+
+TypeScript client for swsrs. Works in browsers and Node 22+. Zero
+runtime dependencies — uses native `fetch` and `WebSocket`.
+
+## Install
+
+```bash
+pnpm add @emdzej/swsrs-client
+# or: npm install / yarn add
+```
+
+## Admin API
+
+```ts
+import { AdminClient } from "@emdzej/swsrs-client";
+
+const admin = new AdminClient({
+  baseURL: "https://relay.example.com",
+  token: async () => await getOIDCToken(),  // called per request, may refresh
+});
+
+const session = await admin.createSession();
+// { id, initiator_token, responder_token, expires_at, ... }
+
+const status = await admin.getSession(session.id);
+const all    = await admin.listSessions();
+await admin.deleteSession(session.id);
+```
+
+`token` may be a sync function, async function, or plain string-returning
+function. It is invoked on every request so you can rotate without
+rebuilding the client.
+
+## Peer connection
+
+`dial` and `accept` are wire-identical — the names express caller
+intent. Both return a `PeerConnection` wrapping a native `WebSocket`.
+
+```ts
+import { dial } from "@emdzej/swsrs-client";
+
+const conn = await dial({
+  relayURL: "wss://relay.example.com",  // http(s):// auto-upgrades
+  sessionId: session.id,
+  token: session.initiator_token,
+});
+
+conn.socket.addEventListener("message", (e) => {
+  // e.data is ArrayBuffer (socket.binaryType defaults to "arraybuffer")
+  console.log("got", new Uint8Array(e.data as ArrayBuffer));
+});
+
+conn.send(new TextEncoder().encode("hello"));
+
+await conn.closed;  // resolves on disconnect with the CloseEvent
+```
+
+### Why the token is in the URL
+
+Browsers cannot set the `Authorization` header on a WebSocket upgrade,
+so the SDK passes `?token=` instead. The swsrs server accepts either
+form. Tokens are short-lived and bound to a specific slot — but you
+should still always serve `wss://`, never `ws://`, to keep them out of
+plaintext.
+
+### Cancellation
+
+Pass an `AbortSignal` to abort the handshake or close an open connection:
+
+```ts
+const ctrl = new AbortController();
+setTimeout(() => ctrl.abort(), 5_000);
+
+await dial({ relayURL, sessionId, token, signal: ctrl.signal });
+```
+
+## Auth helpers
+
+Don't have an OIDC token? Discover the relay's IdP and run device flow:
+
+```ts
+import { discoverConfig, deviceLogin, AdminClient } from "@emdzej/swsrs-client";
+import { FileTokenStore } from "@emdzej/swsrs-client/node"; // Node only
+
+const config = await discoverConfig("https://relay.example.com");
+
+const tok = await deviceLogin({
+  config,
+  onPrompt: (p) => console.log(`Visit ${p.verificationUri} and enter ${p.userCode}`),
+});
+
+const store = new FileTokenStore();   // defaults to ~/.config/swsrs/credentials.json
+await store.save(tok);
+
+const admin = new AdminClient({
+  baseURL: "https://relay.example.com",
+  token: async () => {
+    const t = await store.load();
+    if (!t) throw new Error("no token; run device login again");
+    return t.access_token;
+  },
+});
+```
+
+`discoverConfig()` throws `AuthDisabledError` against a `--no-auth`
+server — callers can treat that as "no token needed".
+
+### Browser caveat
+
+`deviceLogin()` runs in Node and Electron, but most IdPs **don't enable
+CORS** on the token endpoint for device flow (it was designed for CLIs).
+If you call it from a browser context you'll see a CORS error. Browser
+apps should run their own auth-code + PKCE flow with an IdP-supported
+library and pass the resulting access token to `AdminClient`.
+
+## Package layout
+
+| Import | When to use |
+|---|---|
+| `@emdzej/swsrs-client`      | Main entry — works in browser **and** Node |
+| `@emdzej/swsrs-client/node` | Node-only utilities (`FileTokenStore`, `defaultCredentialsPath()`) |
+
+The browser-safe entry never imports `node:*` modules — your bundler
+won't choke.
+
+## Known limitations
+
+- **No transparent reconnect** within the peer-wait grace window.
+- **No application-layer pings** (browsers can't send WS protocol
+  pings). For long-lived sessions, ensure the other peer or the server
+  pings.

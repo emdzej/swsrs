@@ -1,5 +1,7 @@
 # swsrs — simple websocket relay service
 
+**📖 Full docs: [swsrs.emdzej.pl](https://swsrs.emdzej.pl/)**
+
 A minimal, self-hostable WebSocket relay that lets two parties behind NAT or
 firewalls communicate over a single bidirectional tunnel. Similar in spirit
 to [wstunnel](https://github.com/erebe/wstunnel), but with orchestrated
@@ -54,6 +56,8 @@ WebSocket upgrade. Once both attach, frames are pumped verbatim.
   ([docs](clients/typescript/README.md))
 - **`examples/chat/`** — runnable two-party text-chat demo using the TS SDK
   ([docs](examples/chat/README.md))
+- **`docs/`** — VitePress site published at
+  [swsrs.emdzej.pl](https://swsrs.emdzej.pl/)
 
 ## Quickstart
 
@@ -341,6 +345,7 @@ internal/            relay server internals (not importable)
 pkg/client/          Go SDK (importable)
 clients/typescript/  npm package (@emdzej/swsrs-client)
 examples/chat/       two-party text chat demo (Node, commander, TS SDK)
+docs/                VitePress site (https://swsrs.emdzej.pl)
 .github/workflows/   CI + release pipelines
 ```
 
@@ -406,6 +411,10 @@ side receives the other's message. Same script runs in CI.
   workflows. The version in `clients/typescript/package.json` must match
   the tag (the workflow fails fast otherwise); already-published versions
   are skipped cleanly.
+- **`.github/workflows/pages.yml`** — builds the VitePress site under
+  `docs/` and deploys it to GitHub Pages at
+  [swsrs.emdzej.pl](https://swsrs.emdzej.pl/). Runs on push to `main`
+  when `docs/**` changes, and on manual `workflow_dispatch`.
 
 A single `git tag v1.2.3 && git push --tags` therefore produces, in
 parallel:

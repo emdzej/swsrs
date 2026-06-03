@@ -10,7 +10,18 @@ The Go binary (`swsrs`), the Docker image, and the TypeScript SDK
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added — Documentation site
+
+- New VitePress site under `docs/`, published at
+  [swsrs.emdzej.pl](https://swsrs.emdzej.pl/) via GitHub Pages.
+  Structured as Guide (overview, quickstart, architecture, auth, TLS &
+  CORS, CLI, SDKs, examples) plus Reference (configuration, admin API,
+  discovery).
+- `.github/workflows/pages.yml` builds and deploys on push to `main`
+  when `docs/**` changes; `workflow_dispatch` for manual redeploys.
+- `docs/` added to the pnpm workspace so a single `pnpm install` covers
+  everything; `pnpm -r run build` builds the site alongside SDK + chat
+  example.
 
 ## [0.2.1] — 2026-06-03
 
