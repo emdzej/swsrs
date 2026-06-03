@@ -387,8 +387,11 @@ side receives the other's message. Same script runs in CI.
 - **`.github/workflows/ci.yml`** — Go (build/vet/test/gofmt) + TS workspace
   build + the end-to-end smoke test on every push and PR.
 - **`.github/workflows/docker.yml`** — multi-arch (`linux/amd64`,
-  `linux/arm64`) image to `ghcr.io/${{ github.repository }}` on push to
-  `main` and on plain-semver tags (`1.2.3`, no `v` prefix).
+  `linux/arm64`) Docker image build. Runs on every push to `main` as a
+  Dockerfile verification (build only — **not pushed** to the registry).
+  Pushes to `ghcr.io/${{ github.repository }}` only on plain-semver tags
+  (`1.2.3`, no `v` prefix) and on manual `workflow_dispatch`. The
+  `latest` tag follows tagged releases, not `main` HEAD.
 - **`.github/workflows/release.yml`** — [GoReleaser](https://goreleaser.com):
   cross-platform binary archives (`linux/amd64`, `linux/arm64`,
   `darwin/amd64`, `darwin/arm64`, `windows/amd64`) attached to the GitHub
