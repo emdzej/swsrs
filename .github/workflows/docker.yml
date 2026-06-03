@@ -2,15 +2,16 @@ name: Docker
 
 # Build runs on every push to main (verification only — image is NOT pushed
 # to the registry). Push only happens for:
-#   - a plain-semver tag (1.2.3) — release
+#   - a v-prefixed semver tag (v1.2.3) — release
 #   - manual workflow_dispatch — on-demand publish from any ref
 #
 # `latest` is updated only on tag pushes; main builds stay local to the runner.
+# The image tag itself is the bare semver (`1.2.3`); the git tag carries `v`.
 
 on:
   push:
     branches: [main]
-    tags: ['[0-9]+.[0-9]+.[0-9]+']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
 
 permissions:

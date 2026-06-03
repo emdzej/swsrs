@@ -12,7 +12,9 @@ name: Publish npm package
 #        Environment:       (leave blank unless you set one below)
 #
 # Then publishing happens automatically when a GitHub Release is published
-# whose tag matches `npm-*` (e.g. tag `npm-0.2.1` -> publishes 0.2.1).
+# whose tag matches `npm-v*` (e.g. tag `npm-v0.2.1` -> publishes 0.2.1).
+# (The `npm-v` prefix keeps these tags clearly distinct from the Go/Docker
+# release tags `vX.Y.Z`.)
 
 on:
   release:
@@ -25,9 +27,9 @@ permissions:
 
 jobs:
   publish:
-    # Only run for npm-prefixed tags so Docker releases (e.g. `1.2.3`) don't
-    # accidentally trigger an npm publish.
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'npm-')
+    # Only run for npm-v-prefixed tags so binary/Docker releases (`vX.Y.Z`)
+    # don't accidentally trigger an npm publish.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'npm-v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +49,7 @@ jobs:
         if: github.event_name == 'release'
         run: |
           tag="${{ github.event.release.tag_name }}"
-          want="${tag#npm-}"
+          want="${tag#npm-v}"
           got=$(node -p "require('./clients/typescript/package.json').version")
           if [ "$want" != "$got" ]; then
             echo "release tag $tag -> $want, but clients/typescript/package.json says $got"

@@ -10,6 +10,16 @@ applies to.
 
 ## [Unreleased]
 
+### Changed — Release tag convention
+
+- Git tags for the binary, Docker image, and Go module are now
+  **`vX.Y.Z`** (was bare `X.Y.Z`). This matches Go module
+  conventions — `go get github.com/emdzej/swsrs/pkg/client@vX.Y.Z`
+  now resolves cleanly. Docker image tags remain bare (`1.2.3`); only
+  the *git* tag carries the `v`.
+- npm package release tags are now **`npm-vX.Y.Z`** (was `npm-X.Y.Z`),
+  keeping the distinction from Go/Docker release tags explicit.
+
 ### Added — Client auth flow (so clients don't need IdP coordinates)
 
 - **Server** — `GET /.well-known/swsrs-config` returns the relay's issuer,
@@ -150,5 +160,5 @@ not yet API-stable — expect breaking changes before 1.0.
 - **Single port** for admin + data plane. A flood of relay traffic could
   starve admin requests; split into separate listeners if needed.
 
-[Unreleased]: https://github.com/emdzej/swsrs/compare/0.1.0...HEAD
-[0.1.0]: https://github.com/emdzej/swsrs/releases/tag/0.1.0
+[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/emdzej/swsrs/releases/tag/v0.1.0

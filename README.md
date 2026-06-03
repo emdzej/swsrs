@@ -389,28 +389,33 @@ side receives the other's message. Same script runs in CI.
 - **`.github/workflows/docker.yml`** — multi-arch (`linux/amd64`,
   `linux/arm64`) Docker image build. Runs on every push to `main` as a
   Dockerfile verification (build only — **not pushed** to the registry).
-  Pushes to `ghcr.io/${{ github.repository }}` only on plain-semver tags
-  (`1.2.3`, no `v` prefix) and on manual `workflow_dispatch`. The
-  `latest` tag follows tagged releases, not `main` HEAD.
+  Pushes to `ghcr.io/${{ github.repository }}` only on v-prefixed semver
+  tags (`v1.2.3`) and on manual `workflow_dispatch`. The image tag itself
+  is the bare semver (`1.2.3`); the git tag carries `v`. `latest`
+  follows tagged releases, not `main` HEAD.
 - **`.github/workflows/release.yml`** — [GoReleaser](https://goreleaser.com):
   cross-platform binary archives (`linux/amd64`, `linux/arm64`,
   `darwin/amd64`, `darwin/arm64`, `windows/amd64`) attached to the GitHub
-  Release on the same plain-semver tags. Includes `SHA256SUMS` and an
-  auto-generated changelog. `workflow_dispatch` can produce a snapshot
-  build without publishing.
+  Release on the same v-prefixed semver tags. Includes `SHA256SUMS` and
+  an auto-generated changelog. `workflow_dispatch` can produce a
+  snapshot build without publishing.
 - **`.github/workflows/npm-publish.yml`** — publishes
   `@emdzej/swsrs-client` to npm via [Trusted
   Publishing](https://docs.npmjs.com/trusted-publishers) (OIDC, no
   `NPM_TOKEN`) when a GitHub Release is published with a tag of the form
-  `npm-<X.Y.Z>` (e.g. `npm-0.2.1`).
+  `npm-v<X.Y.Z>` (e.g. `npm-v0.2.1`).
 
-A single `git tag 1.2.3 && git push --tags` therefore produces, in
+A single `git tag v1.2.3 && git push --tags` therefore produces, in
 parallel:
   1. A GitHub Release with prebuilt binaries (`release.yml`)
   2. A multi-arch Docker image at `ghcr.io/emdzej/swsrs:1.2.3` (`docker.yml`)
+  3. A Go module version `v1.2.3` resolvable with
+     `go get github.com/emdzej/swsrs/pkg/client@v1.2.3`
 
-The npm package is released independently via `npm-<X.Y.Z>` tags so the two
-versioning streams stay decoupled.
+The npm package is released independently via `npm-v<X.Y.Z>` tags so the
+TS and Go/binary versioning streams stay decoupled. The `npm-v` prefix
+keeps those tags clearly distinct from the Go/Docker release tags
+(`vX.Y.Z`).
 
 ## Releases
 

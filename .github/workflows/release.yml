@@ -1,13 +1,15 @@
 name: Release
 
-# Triggered by plain-semver tags (no 'v' prefix), same as the Docker workflow.
-# One `git tag 1.2.3 && git push --tags` produces both:
+# Triggered by v-prefixed semver tags, matching Go module conventions.
+# Same trigger pattern as the Docker workflow, so a single
+# `git tag v1.2.3 && git push --tags` produces, in parallel:
 #   - GitHub Release with cross-platform binaries (this workflow)
 #   - Multi-arch Docker image at ghcr.io/emdzej/swsrs:1.2.3 (docker.yml)
+#   - Go module version v1.2.3 resolvable via `go get @v1.2.3`
 
 on:
   push:
-    tags: ['[0-9]+.[0-9]+.[0-9]+']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
     inputs:
       snapshot:
