@@ -10,6 +10,10 @@ The Go binary (`swsrs`), the Docker image, and the TypeScript SDK
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.2.2] — 2026-06-03
+
 ### Fixed
 
 - Relay no longer caps incoming WS frames at 32 KB
@@ -219,7 +223,8 @@ client surface — `AdminClient`, `dial` / `accept` returning a
 
 No corresponding server / Go binary / Docker release at this version.
 
-[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/emdzej/swsrs/releases/tag/v0.2.2
 [0.2.1]: https://github.com/emdzej/swsrs/releases/tag/v0.2.1
 [0.2.0]: https://github.com/emdzej/swsrs/releases/tag/v0.2.0
 [`@emdzej/swsrs-client` 0.1.0]: https://www.npmjs.com/package/@emdzej/swsrs-client/v/0.1.0

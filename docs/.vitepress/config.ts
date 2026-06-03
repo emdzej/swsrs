@@ -25,7 +25,7 @@ export default withMermaid(defineConfig({
       { text: "Guide", link: "/guide/quickstart", activeMatch: "/guide/" },
       { text: "Reference", link: "/reference/configuration", activeMatch: "/reference/" },
       {
-        text: "0.2.1",
+        text: "0.2.2",
         items: [
           { text: "Changelog", link: "https://github.com/emdzej/swsrs/blob/main/CHANGELOG.md" },
           { text: "Releases", link: "https://github.com/emdzej/swsrs/releases" },
