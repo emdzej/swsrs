@@ -1,6 +1,4 @@
-# GitHub-recognised funding sources for this project. Mirrors the
-# Support section in the README.
+# These are supported funding model platforms
+
 github: [emdzej]
 buy_me_a_coffee: emdzej
-custom:
-  - "https://www.paypal.com/donate/?business=TDBR3A97PLQRQ&no_recurring=0&item_name=%28emdzej%29&currency_code=PLN"
