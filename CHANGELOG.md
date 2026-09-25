@@ -12,6 +12,63 @@ The Go binary (`swsrs`), the Docker image, and the TypeScript SDK
 
 _Nothing yet._
 
+## [0.3.0] — 2026-09-25
+
+### Fixed
+
+- Deleting a session (`DELETE /admin/sessions/{id}`) or letting its TTL
+  expire now disconnects attached peers with close status 1001. Before,
+  traffic kept flowing on already-paired connections.
+- The relay answers pings and handles close frames while a peer waits
+  for its counterpart. Before, the Go SDK's keepalive closed a waiting
+  connection after about 60s (well short of the 2m peer-wait), and a
+  peer that disconnected while waiting held its slot until peer-wait
+  expired, so an immediate redial failed.
+- Connecting to a slot that is already connected returns HTTP 409
+  before the upgrade instead of a close frame after it.
+- `--reap-interval` flag now exists (it was documented but missing).
+- Go SDK: `AdminTokenSource` refreshes with the client_id used at login
+  (`swsrs auth --client-id`), not only `client_id_hint`. The client_id is
+  now stored in the credentials file.
+- Go SDK: token refresh no longer reuses the first caller's context, which
+  made later refreshes fail with "context canceled" once that context
+  ended.
+- Go SDK: `Conn` deadlines now interrupt a blocked `Read`/`Write` and
+  return `os.ErrDeadlineExceeded` (a `net.Error` with `Timeout()`). A
+  deadline that has already passed fails the call without closing the
+  connection.
+- Go and TypeScript `FileTokenStore`s share one file format: TypeScript
+  writes and reads `expiry`, Go keeps `client_id` / `id_token` / `scope`.
+  Before, a Go reader treated a TS-written token as never expiring.
+- Discovery treats a 404 as "auth disabled" only when the relay says so;
+  a wrong URL or proxy 404 is now reported as an error (Go and TS SDKs).
+- Docker image reports the same bare version as the release binaries
+  (`X.Y.Z`, not `vX.Y.Z`) and now includes commit and build date.
+
+### Changed
+
+- Relay streams each message instead of reading it whole into memory,
+  so memory per connection stays bounded with the default unlimited
+  `SWSRS_MAX_FRAME_SIZE`.
+- `swsrs serve` refuses to start on an unparseable env var or a
+  non-positive duration instead of warning and using the default.
+- Admin API auth failures return a generic `invalid token` /
+  `insufficient scope`; the reason is logged server-side
+  (`admin auth rejected`).
+- CORS responses no longer send `Access-Control-Allow-Credentials` (the
+  admin API uses bearer tokens, not cookies) and preflight lists only the
+  methods that exist (`GET, POST, DELETE, OPTIONS`).
+- `GET /admin/sessions` lists sessions in creation order.
+- Server shutdown closes all sessions so peers get a close frame, and
+  waits for relayed connections to finish.
+- `Authorization: Bearer` scheme is matched case-insensitively.
+- TS SDK: `PeerConnection.send` takes the same types as `WebSocket.send`
+  (drops `SharedArrayBuffer`, which browsers reject at runtime anyway).
+- Dependencies: `coder/websocket` 1.8.15, `go-oidc` 3.21.0,
+  `x/oauth2` 0.37.0; TypeScript 7, vitest 5; docs on mermaid 11.17 with
+  vite pinned to 6.4.3+ under VitePress (clears all `pnpm audit`
+  advisories); GitHub Actions on their current majors.
+
 ## [0.2.2] — 2026-06-03
 
 ### Fixed
@@ -223,7 +280,8 @@ client surface — `AdminClient`, `dial` / `accept` returning a
 
 No corresponding server / Go binary / Docker release at this version.
 
-[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/emdzej/swsrs/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/emdzej/swsrs/releases/tag/v0.2.2
 [0.2.1]: https://github.com/emdzej/swsrs/releases/tag/v0.2.1
 [0.2.0]: https://github.com/emdzej/swsrs/releases/tag/v0.2.0
