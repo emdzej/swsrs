@@ -19,7 +19,7 @@ export interface PeerConnection {
   /** Resolves when the WS closes. Includes the close event. */
   readonly closed: Promise<CloseEvent>;
   /** Send a binary or text message. Equivalent to `socket.send`. */
-  send(data: ArrayBufferLike | ArrayBufferView | Blob | string): void;
+  send(data: Parameters<WebSocket["send"]>[0]): void;
   /** Close the connection. */
   close(code?: number, reason?: string): void;
 }

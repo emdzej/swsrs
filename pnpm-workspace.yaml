@@ -2,3 +2,8 @@ packages:
   - 'clients/typescript'
   - 'examples/*'
   - 'docs'
+
+# VitePress 1.x pins vite 5, which has open advisories (dev server only).
+# vite 6.4.3+ is patched; drop this once VitePress ships a release on it.
+overrides:
+  'vitepress>vite': ^6.4.3
