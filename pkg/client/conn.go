@@ -18,9 +18,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -45,6 +45,9 @@ type DialOptions struct {
 	HTTPClient *http.Client
 
 	// Keepalive interval. Zero means DefaultKeepalive; negative disables.
+	// Pongs are only received while something is reading the connection
+	// (Read or Recv), so a connection nobody reads is closed after two
+	// intervals. Disable keepalive if you only ever write.
 	Keepalive time.Duration
 
 	// HandshakeTimeout bounds the WS upgrade. Zero means 10s.
@@ -104,6 +107,12 @@ func connect(ctx context.Context, opts DialOptions, role string) (*Conn, error) 
 		localA:  syntheticAddr{kind: "swsrs:local:" + role},
 		remoteA: syntheticAddr{kind: "swsrs:relay:" + opts.SessionID},
 	}
+	// One context per direction for the life of the Conn: a message reader
+	// keeps the context it was opened with, so it can't be per-call.
+	c.readCtx, c.readCancel = context.WithCancel(context.Background())
+	c.writeCtx, c.writeCancel = context.WithCancel(context.Background())
+	c.rd.cancel = c.readCancel
+	c.wd.cancel = c.writeCancel
 
 	keepalive := opts.Keepalive
 	if keepalive == 0 {
@@ -138,14 +147,21 @@ func buildRelayURL(base, sessionID string) (string, error) {
 
 // Conn is a peer connection to the relay. Safe for one reader and one writer
 // goroutine concurrently — the same shape as net.Conn.
+//
+// Deadlines follow net.Conn semantics with one difference inherited from
+// coder/websocket: if a deadline passes while a Read or Write is in flight,
+// the operation returns os.ErrDeadlineExceeded AND the connection is
+// closed. A deadline that has already passed when an operation starts
+// fails that operation without affecting the connection.
 type Conn struct {
 	ws   *websocket.Conn
 	role string
 
-	readBuf []byte // leftover bytes from a partially-consumed frame
+	reader io.Reader // current, partially-consumed message
 
-	readDeadline  atomic.Pointer[time.Time]
-	writeDeadline atomic.Pointer[time.Time]
+	readCtx, writeCtx       context.Context
+	readCancel, writeCancel context.CancelFunc
+	rd, wd                  deadline
 
 	localA, remoteA net.Addr
 
@@ -156,38 +172,48 @@ type Conn struct {
 
 // --- net.Conn ---
 
-// Read pulls bytes from the next available WS message, collapsing frame
-// boundaries into a byte stream (TCP-like view). Use Recv if you need
-// boundary preservation.
+// Read pulls bytes from the current WS message, collapsing message
+// boundaries into a byte stream (TCP-like view). Messages are streamed,
+// never buffered whole. Use Recv if you need boundary preservation.
 func (c *Conn) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	if len(c.readBuf) > 0 {
-		n := copy(p, c.readBuf)
-		c.readBuf = c.readBuf[n:]
-		return n, nil
+	if err := c.rd.begin(); err != nil {
+		return 0, err
 	}
-	ctx, cancel := c.contextWithDeadline(c.readDeadline.Load())
-	defer cancel()
-	_, data, err := c.ws.Read(ctx)
-	if err != nil {
-		return 0, normalizeErr(err)
+	defer c.rd.end()
+	for {
+		if c.reader == nil {
+			_, r, err := c.ws.Reader(c.readCtx)
+			if err != nil {
+				return 0, c.rd.wrap(normalizeErr(err))
+			}
+			c.reader = r
+		}
+		n, err := c.reader.Read(p)
+		if err == io.EOF {
+			c.reader = nil
+			err = nil
+		}
+		if err != nil {
+			return n, c.rd.wrap(normalizeErr(err))
+		}
+		if n > 0 {
+			return n, nil
+		}
 	}
-	n := copy(p, data)
-	if n < len(data) {
-		c.readBuf = data[n:]
-	}
-	return n, nil
 }
 
 // Write sends p as a single WS binary frame. Writes are atomic at the
 // frame level; callers framing on top should match peer expectations.
 func (c *Conn) Write(p []byte) (int, error) {
-	ctx, cancel := c.contextWithDeadline(c.writeDeadline.Load())
-	defer cancel()
-	if err := c.ws.Write(ctx, websocket.MessageBinary, p); err != nil {
-		return 0, normalizeErr(err)
+	if err := c.wd.begin(); err != nil {
+		return 0, err
+	}
+	defer c.wd.end()
+	if err := c.ws.Write(c.writeCtx, websocket.MessageBinary, p); err != nil {
+		return 0, c.wd.wrap(normalizeErr(err))
 	}
 	return len(p), nil
 }
@@ -196,6 +222,8 @@ func (c *Conn) Write(p []byte) (int, error) {
 func (c *Conn) Close() error {
 	c.closeOnce.Do(func() {
 		c.closeErr = c.ws.Close(websocket.StatusNormalClosure, "")
+		c.readCancel()
+		c.writeCancel()
 		close(c.closed)
 	})
 	return c.closeErr
@@ -205,17 +233,88 @@ func (c *Conn) LocalAddr() net.Addr  { return c.localA }
 func (c *Conn) RemoteAddr() net.Addr { return c.remoteA }
 
 func (c *Conn) SetDeadline(t time.Time) error {
-	c.SetReadDeadline(t)
-	c.SetWriteDeadline(t)
+	c.rd.set(t)
+	c.wd.set(t)
 	return nil
 }
 func (c *Conn) SetReadDeadline(t time.Time) error {
-	c.readDeadline.Store(&t)
+	c.rd.set(t)
 	return nil
 }
 func (c *Conn) SetWriteDeadline(t time.Time) error {
-	c.writeDeadline.Store(&t)
+	c.wd.set(t)
 	return nil
+}
+
+// deadline tracks one direction's net.Conn deadline. When it passes, an
+// in-flight operation is interrupted by cancelling that direction's
+// context; later operations fail fast until the deadline is moved.
+type deadline struct {
+	mu      sync.Mutex
+	gen     uint64 // invalidates timers from earlier set calls
+	timer   *time.Timer
+	expired bool
+	busy    bool
+	cancel  context.CancelFunc
+}
+
+func (d *deadline) set(t time.Time) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.gen++
+	if d.timer != nil {
+		d.timer.Stop()
+		d.timer = nil
+	}
+	d.expired = false
+	switch {
+	case t.IsZero():
+	case !time.Now().Before(t):
+		d.expireLocked()
+	default:
+		gen := d.gen
+		d.timer = time.AfterFunc(time.Until(t), func() {
+			d.mu.Lock()
+			defer d.mu.Unlock()
+			if d.gen == gen {
+				d.expireLocked()
+			}
+		})
+	}
+}
+
+func (d *deadline) expireLocked() {
+	d.expired = true
+	if d.busy {
+		d.cancel()
+	}
+}
+
+func (d *deadline) begin() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.expired {
+		return os.ErrDeadlineExceeded
+	}
+	d.busy = true
+	return nil
+}
+
+func (d *deadline) end() {
+	d.mu.Lock()
+	d.busy = false
+	d.mu.Unlock()
+}
+
+// wrap reports a failure caused by the deadline as os.ErrDeadlineExceeded,
+// which satisfies net.Error with Timeout() == true.
+func (d *deadline) wrap(err error) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.expired {
+		return os.ErrDeadlineExceeded
+	}
+	return err
 }
 
 // --- frame-preserving view ---
@@ -252,13 +351,6 @@ func (c *Conn) runKeepalive(interval time.Duration) {
 			}
 		}
 	}
-}
-
-func (c *Conn) contextWithDeadline(d *time.Time) (context.Context, context.CancelFunc) {
-	if d == nil || d.IsZero() {
-		return context.WithCancel(context.Background())
-	}
-	return context.WithDeadline(context.Background(), *d)
 }
 
 // normalizeErr translates WS close errors into io.EOF where appropriate so

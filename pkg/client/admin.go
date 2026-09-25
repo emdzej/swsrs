@@ -1,12 +1,14 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -77,7 +79,7 @@ func (a *Admin) CreateSession(ctx context.Context) (*Session, error) {
 // GetSession returns the current status of a session.
 func (a *Admin) GetSession(ctx context.Context, id string) (*SessionStatus, error) {
 	var s SessionStatus
-	if err := a.do(ctx, http.MethodGet, "/admin/sessions/"+id, nil, &s); err != nil {
+	if err := a.do(ctx, http.MethodGet, "/admin/sessions/"+url.PathEscape(id), nil, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -85,7 +87,7 @@ func (a *Admin) GetSession(ctx context.Context, id string) (*SessionStatus, erro
 
 // DeleteSession terminates a session.
 func (a *Admin) DeleteSession(ctx context.Context, id string) error {
-	return a.do(ctx, http.MethodDelete, "/admin/sessions/"+id, nil, nil)
+	return a.do(ctx, http.MethodDelete, "/admin/sessions/"+url.PathEscape(id), nil, nil)
 }
 
 // ListSessions returns all sessions visible to the caller.
@@ -113,11 +115,11 @@ func (a *Admin) do(ctx context.Context, method, path string, in any, out any) er
 		if err != nil {
 			return err
 		}
-		body = strings.NewReader(string(b))
+		body = bytes.NewReader(b)
 	}
 
-	url := strings.TrimRight(a.BaseURL, "/") + path
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	endpoint := strings.TrimRight(a.BaseURL, "/") + path
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
 		return err
 	}

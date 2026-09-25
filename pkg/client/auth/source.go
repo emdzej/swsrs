@@ -18,6 +18,8 @@ import (
 //   - returns the access token if still valid
 //   - refreshes transparently when the IdP supplied a refresh_token
 //   - persists the refreshed token back to the store
+//   - refreshes with the client_id recorded at login (tok.Extra("client_id"),
+//     set by DeviceLogin), falling back to cfg.ClientIDHint
 //   - returns an error if no token is cached or the refresh fails — the
 //     caller is expected to invoke `swsrs auth` (or another DeviceLogin)
 //     and retry. The SDK does not silently re-prompt.
@@ -53,14 +55,21 @@ func (a *adminSource) token(ctx context.Context) (string, error) {
 			}
 			return "", err
 		}
+		clientID, _ := tok.Extra("client_id").(string)
+		if clientID == "" {
+			clientID = a.cfg.ClientIDHint
+		}
 		oauthCfg := &oauth2.Config{
-			ClientID: a.cfg.ClientIDHint,
+			ClientID: clientID,
 			Endpoint: oauth2.Endpoint{TokenURL: a.cfg.TokenEndpoint},
 		}
+		// The token source keeps its context for every later refresh, so
+		// it must not inherit this call's cancellation.
 		a.src = &persistingSource{
-			inner: oauthCfg.TokenSource(ctx, tok),
-			store: a.store,
-			last:  tok,
+			inner:    oauthCfg.TokenSource(context.WithoutCancel(ctx), tok),
+			store:    a.store,
+			clientID: clientID,
+			last:     tok,
 		}
 	}
 	tok, err := a.src.Token()
@@ -73,9 +82,10 @@ func (a *adminSource) token(ctx context.Context) (string, error) {
 // persistingSource wraps an oauth2.TokenSource and writes refreshed tokens
 // back to the store whenever they change.
 type persistingSource struct {
-	inner oauth2.TokenSource
-	store TokenStore
-	last  *oauth2.Token
+	inner    oauth2.TokenSource
+	store    TokenStore
+	clientID string
+	last     *oauth2.Token
 }
 
 func (p *persistingSource) Token() (*oauth2.Token, error) {
@@ -84,7 +94,7 @@ func (p *persistingSource) Token() (*oauth2.Token, error) {
 		return nil, err
 	}
 	if p.last == nil || tok.AccessToken != p.last.AccessToken || !tok.Expiry.Equal(p.last.Expiry) {
-		_ = p.store.Save(context.Background(), tok)
+		_ = p.store.Save(context.Background(), withClientID(tok, p.clientID))
 		p.last = tok
 	}
 	return tok, nil

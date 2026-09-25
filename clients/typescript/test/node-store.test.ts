@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir, platform } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -27,6 +27,33 @@ describe("FileTokenStore", () => {
     const tok = { access_token: "atk", token_type: "Bearer", refresh_token: "rtk", expires_at: 12345 };
     await s.save(tok);
     expect(await s.load()).toEqual(tok);
+  });
+
+  it("writes expiry for the Go SDK", async () => {
+    const s = new FileTokenStore(path);
+    await s.save({ access_token: "atk", token_type: "Bearer", expires_at: Date.UTC(2030, 0, 1) });
+    expect(JSON.parse(readFileSync(path, "utf8")).expiry).toBe("2030-01-01T00:00:00.000Z");
+  });
+
+  it("reads a file written by the Go SDK", async () => {
+    writeFileSync(
+      path,
+      JSON.stringify({
+        access_token: "atk",
+        token_type: "Bearer",
+        refresh_token: "rtk",
+        expiry: "2030-01-01T00:00:00Z",
+        client_id: "cli",
+      }),
+    );
+    const tok = await new FileTokenStore(path).load();
+    expect(tok).toEqual({
+      access_token: "atk",
+      token_type: "Bearer",
+      refresh_token: "rtk",
+      expires_at: Date.UTC(2030, 0, 1),
+      client_id: "cli",
+    });
   });
 
   it("writes with mode 0600 on Unix", async () => {

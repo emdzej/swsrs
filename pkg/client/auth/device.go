@@ -93,7 +93,21 @@ func (c *Config) DeviceLogin(ctx context.Context, opts DeviceLoginOptions) (*oau
 	if err != nil {
 		return nil, fmt.Errorf("auth: device token: %w", err)
 	}
-	return tok, nil
+	// Refreshing needs the same client_id; record it with the token so
+	// AdminTokenSource doesn't have to guess.
+	return withClientID(tok, clientID), nil
+}
+
+// withClientID returns tok with client_id recorded in its extras, keeping
+// the id_token and scope the IdP returned.
+func withClientID(tok *oauth2.Token, clientID string) *oauth2.Token {
+	extra := map[string]any{"client_id": clientID}
+	for _, k := range []string{"id_token", "scope"} {
+		if v, ok := tok.Extra(k).(string); ok && v != "" {
+			extra[k] = v
+		}
+	}
+	return tok.WithExtra(extra)
 }
 
 func ensureScope(scopes []string, want string) []string {

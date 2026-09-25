@@ -106,6 +106,15 @@ msg, _ := conn.Recv(ctx)  // returns exactly one WS message
 Don't mix `Read`/`Write` with `Send`/`Recv` on the same connection —
 buffering across views is undefined.
 
+### Deadlines
+
+`SetDeadline` / `SetReadDeadline` / `SetWriteDeadline` follow `net.Conn`
+rules, including interrupting a `Read` or `Write` that is already
+blocked, and timeouts return `os.ErrDeadlineExceeded`. One difference
+comes from `coder/websocket`: a deadline that fires **during** an
+operation also closes the connection. A deadline that has already passed
+when an operation starts fails just that call.
+
 ## Options
 
 ```go
@@ -114,7 +123,7 @@ client.DialOptions{
     SessionID:        "...",
     Token:            "...",
     HTTPClient:       customClient,    // optional, for proxies / custom roots
-    Keepalive:        30*time.Second,  // 0 = default, negative = disabled
+    Keepalive:        30*time.Second,  // 0 = default, negative = disabled; needs an active reader
     HandshakeTimeout: 10*time.Second,  // 0 = default
 }
 ```

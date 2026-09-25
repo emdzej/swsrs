@@ -23,7 +23,7 @@ func (p *peerFlags) attach(fs *flag.FlagSet) {
 	fs.StringVar(&p.URL, "url", envOr("SWSRS_URL", ""), "relay base URL, e.g. wss://relay.example.com")
 	fs.StringVar(&p.Session, "session", os.Getenv("SWSRS_SESSION"), "session id")
 	fs.StringVar(&p.Token, "token", os.Getenv("SWSRS_TOKEN"), "session token")
-	fs.StringVar(&p.Role, "role", "responder", "initiator | responder (controls which slot we claim; same wire effect)")
+	fs.StringVar(&p.Role, "role", "responder", "initiator | responder (label only: the token decides which slot is claimed)")
 }
 
 func (p *peerFlags) validate() error {

@@ -22,7 +22,7 @@ export interface RelayConfig {
   client_id_hint?: string;
 }
 
-/** Thrown by discoverConfig when the relay is running with --no-auth. */
+/** Thrown by discoverConfig when the relay reports it is running with --no-auth. */
 export class AuthDisabledError extends Error {
   constructor() {
     super("relay is running with auth disabled (no token needed)");
@@ -33,7 +33,7 @@ export class AuthDisabledError extends Error {
 /**
  * Fetch the relay's discovery document.
  *
- * @throws {AuthDisabledError} if the server responds 404 (--no-auth mode)
+ * @throws {AuthDisabledError} if the relay is running with --no-auth
  */
 export async function discoverConfig(
   relayURL: string,
@@ -43,11 +43,13 @@ export async function discoverConfig(
   const fetchImpl = options?.fetch ?? fetch.bind(globalThis);
   const url = relayURL.replace(/\/$/, "") + "/.well-known/swsrs-config";
   const resp = await fetchImpl(url, { signal: options?.signal });
-  if (resp.status === 404) {
-    throw new AuthDisabledError();
-  }
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
+    // A --no-auth relay answers 404 with "auth disabled ..."; any other 404
+    // (wrong URL, a proxy in the way) is a real error.
+    if (resp.status === 404 && body.includes("auth disabled")) {
+      throw new AuthDisabledError();
+    }
     throw new Error(`discoverConfig: ${resp.status} ${resp.statusText}: ${body}`);
   }
   return (await resp.json()) as RelayConfig;
@@ -63,4 +65,6 @@ export interface TokenResponse {
   refresh_token?: string;
   id_token?: string;
   scope?: string;
+  /** OAuth client_id the token was issued to. Set by deviceLogin; needed to refresh. */
+  client_id?: string;
 }

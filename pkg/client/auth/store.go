@@ -13,9 +13,9 @@ import (
 
 // TokenStore persists OAuth tokens between SDK invocations.
 //
-// Load returns (nil, nil) when no token has been stored — i.e. ErrNotFound
-// is reserved for "the storage backend itself failed" and is rarely useful;
-// callers should treat a nil token as "needs login".
+// Load returns ErrNoStoredToken when nothing has been stored; callers treat
+// that as "needs login". Implementations should preserve the "client_id"
+// extra (tok.Extra("client_id")) — AdminTokenSource refreshes with it.
 type TokenStore interface {
 	Load(ctx context.Context) (*oauth2.Token, error)
 	Save(ctx context.Context, tok *oauth2.Token) error
@@ -26,6 +26,8 @@ type TokenStore interface {
 var ErrNoStoredToken = errors.New("auth: no stored token")
 
 // FileTokenStore persists tokens as JSON under a file path. Mode 0600.
+// The file format is shared with the TypeScript SDK's FileTokenStore, so
+// both can use the same default path.
 //
 // DefaultFilePath returns the canonical location: $XDG_CONFIG_HOME/swsrs/
 // credentials.json on Linux/BSD, ~/Library/Application Support/swsrs/... on
@@ -65,11 +67,27 @@ func (s *FileTokenStore) Load(ctx context.Context) (*oauth2.Token, error) {
 		}
 		return nil, fmt.Errorf("auth: read token file: %w", err)
 	}
-	var tok oauth2.Token
-	if err := json.Unmarshal(data, &tok); err != nil {
+	st := storedToken{Token: new(oauth2.Token)}
+	if err := json.Unmarshal(data, &st); err != nil {
 		return nil, fmt.Errorf("auth: decode token file: %w", err)
 	}
-	return &tok, nil
+	extra := map[string]any{}
+	for k, v := range map[string]string{"client_id": st.ClientID, "id_token": st.IDToken, "scope": st.Scope} {
+		if v != "" {
+			extra[k] = v
+		}
+	}
+	return st.Token.WithExtra(extra), nil
+}
+
+// storedToken is the on-disk shape: oauth2.Token's fields plus the extras
+// the SDKs need to keep. The TypeScript SDK reads and writes the same
+// fields (it also adds expires_at, which Go ignores).
+type storedToken struct {
+	*oauth2.Token
+	ClientID string `json:"client_id,omitempty"`
+	IDToken  string `json:"id_token,omitempty"`
+	Scope    string `json:"scope,omitempty"`
 }
 
 // Save writes the token to disk with mode 0600. Parent directory is created
@@ -82,7 +100,11 @@ func (s *FileTokenStore) Save(ctx context.Context, tok *oauth2.Token) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 		return fmt.Errorf("auth: mkdir token dir: %w", err)
 	}
-	data, err := json.MarshalIndent(tok, "", "  ")
+	st := storedToken{Token: tok}
+	st.ClientID, _ = tok.Extra("client_id").(string)
+	st.IDToken, _ = tok.Extra("id_token").(string)
+	st.Scope, _ = tok.Extra("scope").(string)
+	data, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		return err
 	}

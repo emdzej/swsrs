@@ -115,6 +115,7 @@ export async function deviceLogin(opts: DeviceLoginOptions): Promise<TokenRespon
     if (tokResp.ok) {
       const tok = (await tokResp.json()) as TokenResponse;
       if (tok.expires_in) tok.expires_at = Date.now() + tok.expires_in * 1000;
+      tok.client_id = clientId;
       return tok;
     }
     // RFC 8628 §3.5: errors come back as JSON with an `error` field.

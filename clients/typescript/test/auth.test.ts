@@ -40,9 +40,16 @@ describe("discoverConfig", () => {
     await discoverConfig("https://relay.example.com/", { fetch });
   });
 
-  it("throws AuthDisabledError on 404", async () => {
-    const fetch = mockFetch(() => new Response("nope", { status: 404 }));
+  it("throws AuthDisabledError when a --no-auth relay answers 404", async () => {
+    const fetch = mockFetch(() => new Response("auth disabled on this deployment (--no-auth)", { status: 404 }));
     await expect(discoverConfig("https://relay.example.com", { fetch })).rejects.toBeInstanceOf(AuthDisabledError);
+  });
+
+  it("treats any other 404 as an error", async () => {
+    const fetch = mockFetch(() => new Response("404 page not found", { status: 404 }));
+    const err = await discoverConfig("https://relay.example.com", { fetch }).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(AuthDisabledError);
+    expect(String(err)).toContain("404");
   });
 
   it("surfaces non-404 errors with status code", async () => {

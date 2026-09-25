@@ -54,11 +54,13 @@ func Discover(ctx context.Context, relayURL string) (*Config, error) {
 		return nil, fmt.Errorf("auth: discovery: %w", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrAuthDisabled
-	}
 	if resp.StatusCode >= 400 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		// A --no-auth relay answers 404 with "auth disabled ..."; any other
+		// 404 (wrong URL, a proxy in the way) is a real error.
+		if resp.StatusCode == http.StatusNotFound && strings.Contains(string(msg), "auth disabled") {
+			return nil, ErrAuthDisabled
+		}
 		return nil, fmt.Errorf("auth: discovery %s: %s", resp.Status, strings.TrimSpace(string(msg)))
 	}
 	var cfg Config
@@ -68,6 +70,6 @@ func Discover(ctx context.Context, relayURL string) (*Config, error) {
 	return &cfg, nil
 }
 
-// ErrAuthDisabled is returned when the server replies 404 to discovery —
-// it's running with --no-auth and no token is needed.
+// ErrAuthDisabled is returned when the relay's discovery endpoint reports
+// it is running with --no-auth, so no token is needed.
 var ErrAuthDisabled = errors.New("auth: relay is running with auth disabled (no token needed)")
