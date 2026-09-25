@@ -39,19 +39,20 @@ type serveConfig struct {
 }
 
 func runServe(args []string) int {
+	var envErrs []error
 	cfg := serveConfig{
 		Addr:            envOr("SWSRS_ADDR", ":8080"),
 		OIDCIssuer:      os.Getenv("SWSRS_OIDC_ISSUER"),
 		OIDCAudience:    os.Getenv("SWSRS_OIDC_AUDIENCE"),
 		OIDCClientID:    os.Getenv("SWSRS_OIDC_CLIENT_ID"),
-		SessionTTL:      envDuration("SWSRS_SESSION_TTL", 1*time.Hour),
-		PeerWaitTimeout: envDuration("SWSRS_PEER_WAIT", 2*time.Minute),
-		ReapInterval:    envDuration("SWSRS_REAP_INTERVAL", 30*time.Second),
+		SessionTTL:      envDuration("SWSRS_SESSION_TTL", 1*time.Hour, &envErrs),
+		PeerWaitTimeout: envDuration("SWSRS_PEER_WAIT", 2*time.Minute, &envErrs),
+		ReapInterval:    envDuration("SWSRS_REAP_INTERVAL", 30*time.Second, &envErrs),
 		PublicBaseURL:   os.Getenv("SWSRS_PUBLIC_BASE_URL"),
 		TLSCert:         os.Getenv("SWSRS_TLS_CERT"),
 		TLSKey:          os.Getenv("SWSRS_TLS_KEY"),
 		NoAuth:          os.Getenv("SWSRS_NO_AUTH") == "1" || strings.EqualFold(os.Getenv("SWSRS_NO_AUTH"), "true"),
-		MaxFrameSize:    envInt64("SWSRS_MAX_FRAME_SIZE", -1),
+		MaxFrameSize:    envInt64("SWSRS_MAX_FRAME_SIZE", -1, &envErrs),
 	}
 	if v := os.Getenv("SWSRS_ALLOWED_ORIGINS"); v != "" {
 		cfg.AllowedOrigins = strings.Split(v, ",")
@@ -64,6 +65,7 @@ func runServe(args []string) int {
 	fs.StringVar(&cfg.OIDCClientID, "oidc-client-id", cfg.OIDCClientID, "shared OAuth client_id surfaced via /.well-known/swsrs-config (optional)")
 	fs.DurationVar(&cfg.SessionTTL, "session-ttl", cfg.SessionTTL, "max session lifetime")
 	fs.DurationVar(&cfg.PeerWaitTimeout, "peer-wait", cfg.PeerWaitTimeout, "how long to wait for the other peer")
+	fs.DurationVar(&cfg.ReapInterval, "reap-interval", cfg.ReapInterval, "how often expired sessions are swept")
 	fs.StringVar(&cfg.PublicBaseURL, "public-base-url", cfg.PublicBaseURL, "public ws(s):// URL for connect links in admin responses")
 	fs.StringVar(&cfg.TLSCert, "tls-cert", cfg.TLSCert, "path to PEM cert (with --tls-key enables TLS; omit both to run plain HTTP behind external termination)")
 	fs.StringVar(&cfg.TLSKey, "tls-key", cfg.TLSKey, "path to PEM key")
@@ -74,6 +76,16 @@ func runServe(args []string) int {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	// A typo in a limit must not silently fall back to a default.
+	if err := errors.Join(envErrs...); err != nil {
+		logger.Error("invalid configuration", "err", err)
+		return 2
+	}
+	if cfg.SessionTTL <= 0 || cfg.PeerWaitTimeout <= 0 || cfg.ReapInterval <= 0 {
+		logger.Error("--session-ttl, --peer-wait and --reap-interval must be positive")
+		return 2
+	}
+	cfg.PublicBaseURL = strings.TrimRight(cfg.PublicBaseURL, "/")
 	if !cfg.NoAuth && cfg.OIDCIssuer == "" {
 		logger.Error("SWSRS_OIDC_ISSUER (or --oidc-issuer) is required; pass --no-auth for local dev only")
 		return 2
@@ -107,13 +119,14 @@ func runServe(args []string) int {
 		Verifier:      verifier,
 		PublicBaseURL: cfg.PublicBaseURL,
 	}).Register(mux)
-	(&relay.Handler{
+	relayHandler := &relay.Handler{
 		Store:           store,
 		Logger:          logger,
 		PeerWaitTimeout: cfg.PeerWaitTimeout,
 		AllowedOrigins:  cfg.AllowedOrigins,
 		MaxFrameSize:    cfg.MaxFrameSize,
-	}).Register(mux)
+	}
+	relayHandler.Register(mux)
 	mux.Handle("GET /.well-known/swsrs-config", discovery.Handler(
 		verifier,
 		[]string{admin.ScopeCreate, admin.ScopeRead, admin.ScopeDelete},
@@ -152,6 +165,10 @@ func runServe(args []string) int {
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutCtx)
+	// Shutdown doesn't track hijacked WebSocket connections: close every
+	// session so peers get a close frame, then wait for handlers to finish.
+	store.CloseAll()
+	relayHandler.Wait(shutCtx)
 	return 0
 }
 
@@ -162,22 +179,28 @@ func envOr(k, def string) string {
 	return def
 }
 
-func envDuration(k string, def time.Duration) time.Duration {
-	if v := os.Getenv(k); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			return d
-		}
-		fmt.Fprintf(os.Stderr, "ignoring invalid duration in %s\n", k)
+func envDuration(k string, def time.Duration, errs *[]error) time.Duration {
+	v := os.Getenv(k)
+	if v == "" {
+		return def
 	}
-	return def
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		*errs = append(*errs, fmt.Errorf("%s: %w", k, err))
+		return def
+	}
+	return d
 }
 
-func envInt64(k string, def int64) int64 {
-	if v := os.Getenv(k); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-			return n
-		}
-		fmt.Fprintf(os.Stderr, "ignoring invalid integer in %s\n", k)
+func envInt64(k string, def int64, errs *[]error) int64 {
+	v := os.Getenv(k)
+	if v == "" {
+		return def
 	}
-	return def
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		*errs = append(*errs, fmt.Errorf("%s: %w", k, err))
+		return def
+	}
+	return n
 }
