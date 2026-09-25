@@ -7,6 +7,8 @@ WORKDIR /src
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
+ARG COMMIT=unknown
+ARG DATE=unknown
 
 # Cache modules separately from source for faster rebuilds.
 COPY go.mod go.sum ./
@@ -17,7 +19,8 @@ COPY . .
 # Static, stripped binary. CGO disabled so it runs in distroless/static.
 RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags="-s -w -X main.version=$VERSION" \
+    go build -trimpath \
+    -ldflags="-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE" \
     -o /out/swsrs ./cmd/swsrs
 
 # --- runtime stage ---
