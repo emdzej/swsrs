@@ -1,6 +1,9 @@
 # Configuration
 
 All options accept either env vars or flags. Flags override env.
+An env var or flag that doesn't parse, or a non-positive duration, stops
+`swsrs serve` at startup with exit code 2 rather than falling back to
+the default.
 
 | Env / Flag | Default | Description |
 |---|---|---|
@@ -16,7 +19,7 @@ All options accept either env vars or flags. Flags override env.
 | `SWSRS_TLS_CERT` / `--tls-cert` | — | PEM cert; with `--tls-key` enables in-process TLS |
 | `SWSRS_TLS_KEY` / `--tls-key` | — | PEM key |
 | `SWSRS_NO_AUTH` / `--no-auth` | `false` | **Dev only** — disable OIDC verification on the admin API |
-| `SWSRS_MAX_FRAME_SIZE` / `--max-frame-size` | `-1` | Max WS frame size (bytes) accepted on the data plane. `-1` = unlimited. Default fits the protocol-agnostic relay model — peers are already authenticated. Set a positive cap (e.g. `67108864` = 64 MB) if you want defence-in-depth against a compromised peer. |
+| `SWSRS_MAX_FRAME_SIZE` / `--max-frame-size` | `-1` | Max WS frame size (bytes) accepted on the data plane. `-1` = unlimited. Default fits the protocol-agnostic relay model — peers are already authenticated, and the relay streams each message through rather than holding it in memory, so large messages don't grow the server's memory use. Set a positive cap (e.g. `67108864` = 64 MB) if you want defence-in-depth against a compromised peer. |
 
 ## OIDC scopes
 
@@ -42,4 +45,4 @@ A typical client app needs only `swsrs:session:create`. See
 | `GET /admin/sessions`                | OIDC + `swsrs:session:read`   | 200 + `{ sessions: [...] }` |
 | `GET /admin/sessions/{id}`           | OIDC + `swsrs:session:read`   | 200 or 404 |
 | `DELETE /admin/sessions/{id}`        | OIDC + `swsrs:session:delete` | 204 or 404 |
-| `GET /relay/{id}` (WS upgrade)       | opaque per-slot token         | 101 or 401/404 |
+| `GET /relay/{id}` (WS upgrade)       | opaque per-slot token         | 101, or 401/404, or 409 if the slot is already connected |

@@ -31,10 +31,11 @@ stateDiagram-v2
 
     pending --> half_open : peer attaches
     half_open --> open : counterpart attaches
-    open --> half_open : a peer disconnects (within grace)
-    half_open --> closed : grace expired, no reconnect
-    open --> closed : both peers gone
-    pending --> closed : TTL / peer-wait expires
+    half_open --> pending : peer leaves / peer-wait expires
+    open --> pending : a peer disconnects (relay closes the other)
+    pending --> closed : TTL expires / admin delete
+    half_open --> closed : TTL expires / admin delete
+    open --> closed : TTL expires / admin delete
     closed --> [*]
 ```
 
@@ -43,8 +44,12 @@ stateDiagram-v2
   caller intent; the wire is symmetric.
 - TTL (default 1h) bounds session lifetime regardless of activity.
 - `peer_wait` (default 2m) bounds how long the first-arriving peer waits
-  for its counterpart.
+  for its counterpart. When it expires that peer is disconnected, but
+  the session stays `pending` and both tokens remain valid until the TTL.
+- When a session closes (TTL or `DELETE /admin/sessions/{id}`), connected
+  peers get a close frame with status 1001 (going away).
 - A periodic reaper sweeps expired sessions.
+- A second connection to a slot that is already connected gets HTTP 409.
 
 The slot model means **one TCP/UDP connection per session**. For N
 concurrent tunnels, mint N sessions. Multiplexing is a client-side
@@ -66,7 +71,9 @@ never requires a server release.
 
 ## Backpressure
 
-The forwarding loop is synchronous per direction. A slow peer creates
+The forwarding loop is synchronous per direction and streams each
+message through in chunks instead of reading it whole, so memory per
+connection stays bounded whatever the message size. A slow peer creates
 backpressure on the fast peer (the relay won't buffer unbounded). If a
 peer's WebSocket write blocks, both sides eventually close. No
 in-memory queue per-session means no OOM surprises on a `t4g.nano`.
@@ -78,7 +85,9 @@ Worth being explicit about scope:
 - **No transparent reconnect** within the peer-wait grace window — the
   drop surfaces as a read/write error and callers redial with the same
   token.
-- **No server-side WS pings** — the Go SDK pings; browsers can't.
+- **No server-side WS pings** — the relay answers pings (including while a
+  peer waits for its counterpart) but never sends them. The Go SDK
+  pings; browsers can't.
 - **No transparent multi-stream multiplexing** — one TCP/UDP per session.
 - **No per-user identity on the data plane** — slot tokens are opaque,
   not JWTs. If you need an audit trail of who connected, your control

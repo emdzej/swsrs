@@ -216,7 +216,14 @@ Verify after release: GitHub Release exists with binaries,
   allowlist drives both WS Origin check and HTTP CORS.
 - **`coder/websocket` default ReadLimit is 32 KB.** We disable it via
   `SetReadLimit(-1)` (configurable as `SWSRS_MAX_FRAME_SIZE`). Don't
-  re-add a default limit thinking it's safer.
+  re-add a default limit thinking it's safer. Unlimited is memory-safe
+  only because the relay streams messages with `Reader`/`Writer` +
+  `io.Copy`; don't switch the pump back to `conn.Read`, which buffers the
+  whole message.
+- **The relay must keep reading while a peer waits.** Pongs and close
+  frames are only processed by a reader. `pump` calls `Reader` before
+  the counterpart attaches for this reason; without it SDK keepalives
+  fail and a dropped peer holds its slot until peer-wait expires.
 - **The Go SDK errors loudly on auth failure** — it does NOT silently
   re-run device flow. Callers handle the error explicitly. Keep this
   contract; libraries that grab stdin / pop browsers are surprising.

@@ -146,7 +146,7 @@ client.DialOptions{
     SessionID:        "...",
     Token:            "...",
     HTTPClient:       customClient,    // optional, for proxies / custom roots
-    Keepalive:        30*time.Second,  // 0 = default, negative = disabled
+    Keepalive:        30*time.Second,  // 0 = default, negative = disabled; needs an active reader
     HandshakeTimeout: 10*time.Second,  // 0 = default
 }
 ```
