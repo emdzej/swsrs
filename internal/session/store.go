@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 )
@@ -43,6 +44,7 @@ func (s *Store) List() []*Session {
 	for _, sess := range s.sessions {
 		out = append(out, sess)
 	}
+	slices.SortFunc(out, func(a, b *Session) int { return a.CreatedAt.Compare(b.CreatedAt) })
 	return out
 }
 
@@ -72,6 +74,16 @@ func (s *Store) Reap(now time.Time) int {
 		}
 	}
 	return n
+}
+
+// CloseAll closes and removes every session. Used on server shutdown.
+func (s *Store) CloseAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, sess := range s.sessions {
+		sess.Close()
+		delete(s.sessions, id)
+	}
 }
 
 // RunReaper blocks, periodically reaping expired sessions until ctx is done.

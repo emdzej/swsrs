@@ -60,6 +60,7 @@ type Session struct {
 	bytesIn        uint64 // bytes from initiator to responder
 	bytesOut       uint64 // bytes from responder to initiator
 	lastActivity   time.Time
+	changed        chan struct{} // closed and replaced on every attach/detach
 	closeOnce      sync.Once
 	closed         chan struct{}
 }
@@ -70,15 +71,9 @@ type peer struct {
 	attached time.Time
 }
 
-func newID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		panic(err)
-	}
-	return base64.RawURLEncoding.EncodeToString(b[:])
-}
-
-func newToken() string {
+// random128 returns 128 random bits, base64url-encoded. Used for both
+// session ids and slot tokens.
+func random128() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		panic(err)
@@ -90,13 +85,14 @@ func newToken() string {
 func New(ttl time.Duration) *Session {
 	now := time.Now()
 	return &Session{
-		ID:             newID(),
+		ID:             random128(),
 		CreatedAt:      now,
 		ExpiresAt:      now.Add(ttl),
 		state:          StatePending,
-		initiatorToken: newToken(),
-		responderToken: newToken(),
+		initiatorToken: random128(),
+		responderToken: random128(),
 		lastActivity:   now,
+		changed:        make(chan struct{}),
 		closed:         make(chan struct{}),
 	}
 }
@@ -125,6 +121,18 @@ var (
 	ErrExpired      = errors.New("session expired")
 	ErrClosed       = errors.New("session closed")
 )
+
+// SlotFree reports whether the slot for role is currently unoccupied. The
+// answer can be stale by the time the caller acts on it; Attach is the
+// authoritative check.
+func (s *Session) SlotFree(role Role) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if role == RoleInitiator {
+		return s.initiator == nil
+	}
+	return s.responder == nil
+}
 
 // Attach binds a connection to a slot. Returns an error if the slot is taken
 // or the session is closed/expired.
@@ -159,11 +167,13 @@ func (s *Session) Attach(role Role, conn *websocket.Conn) error {
 		s.state = StateHalfOpen
 	}
 	s.lastActivity = time.Now()
+	s.notifyLocked()
 	return nil
 }
 
-// Detach removes a peer from its slot. If both peers leave the session
-// transitions to closed.
+// Detach removes a peer from its slot. When both slots are empty the
+// session returns to pending, so peers can redial with the same tokens
+// until the TTL expires. A closed session stays closed.
 func (s *Session) Detach(role Role) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -174,29 +184,38 @@ func (s *Session) Detach(role Role) {
 	case RoleResponder:
 		s.responder = nil
 	}
-	if s.initiator == nil && s.responder == nil {
+	switch {
+	case s.state == StateClosed:
+	case s.initiator == nil && s.responder == nil:
 		s.state = StatePending
-	} else {
+	default:
 		s.state = StateHalfOpen
 	}
 	s.lastActivity = time.Now()
+	s.notifyLocked()
 }
 
-// Peer returns the connection of the *other* slot, if connected.
-func (s *Session) Peer(self Role) *websocket.Conn {
+func (s *Session) notifyLocked() {
+	close(s.changed)
+	s.changed = make(chan struct{})
+}
+
+// Peer returns the connection of the *other* slot (nil if not connected)
+// and a channel that is closed on the next attach or detach, so callers
+// can wait for the counterpart without polling.
+func (s *Session) Peer(self Role) (*websocket.Conn, <-chan struct{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	switch self {
-	case RoleInitiator:
-		if s.responder != nil {
-			return s.responder.conn
-		}
-	case RoleResponder:
-		if s.initiator != nil {
-			return s.initiator.conn
-		}
+	var p *peer
+	if self == RoleInitiator {
+		p = s.responder
+	} else {
+		p = s.initiator
 	}
-	return nil
+	if p == nil {
+		return nil, s.changed
+	}
+	return p.conn, s.changed
 }
 
 // AddBytes records relayed bytes for status reporting.
@@ -211,7 +230,8 @@ func (s *Session) AddBytes(from Role, n int) {
 	s.lastActivity = time.Now()
 }
 
-// Close marks the session terminated and closes the broadcast channel.
+// Close marks the session terminated and closes the Closed channel. The
+// relay handler watches that channel and disconnects attached peers.
 func (s *Session) Close() {
 	s.closeOnce.Do(func() {
 		s.mu.Lock()
