@@ -47,8 +47,8 @@ func TestAllowedOriginGetsHeaders(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://app.example.com" {
 		t.Errorf("ACAO = %q", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
-		t.Errorf("ACAC = %q", got)
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Errorf("ACAC = %q, want unset", got)
 	}
 	if !strings.Contains(rec.Header().Get("Vary"), "Origin") {
 		t.Errorf("Vary header missing Origin: %q", rec.Header().Get("Vary"))

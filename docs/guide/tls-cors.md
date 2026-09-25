@@ -41,11 +41,14 @@ port). Examples:
 
 `OPTIONS` preflight requests short-circuit with:
 
-- `Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`
+- `Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS`
 - `Access-Control-Allow-Headers: <echoed from request, or default>`
-- `Access-Control-Allow-Credentials: true`
 - `Access-Control-Max-Age: 600`
 - `Vary: Origin`
+
+`Access-Control-Allow-Credentials` is not sent: the admin API takes a
+bearer token in the `Authorization` header and never uses cookies, so
+browser code should call it with the default `credentials` mode.
 
 Disallowed origins fall through silently — no CORS headers are set, so
 the browser blocks the response. `Vary: Origin` is always emitted to

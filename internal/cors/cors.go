@@ -10,10 +10,7 @@
 //	app.example.com               → exact host match
 //	*.example.com                 → any single-subdomain on example.com
 //	localhost:*                   → any port on localhost
-//	*                             → any origin (use with care; combined
-//	                                with credentials=true this still
-//	                                echoes the caller's origin, which the
-//	                                CORS spec allows)
+//	*                             → any origin (use with care)
 //
 // Empty AllowedOriginPatterns means CORS is disabled (no headers set,
 // preflight requests fall through to the mux).
@@ -46,12 +43,13 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 		w.Header().Add("Vary", "Origin")
 
 		if origin != "" && m.allowed(origin) {
+			// No Allow-Credentials: the admin API authenticates with a
+			// bearer header, never cookies.
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 				// Preflight: short-circuit with allow-* headers.
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 				if reqHdrs := r.Header.Get("Access-Control-Request-Headers"); reqHdrs != "" {
 					w.Header().Set("Access-Control-Allow-Headers", reqHdrs)
 				} else {

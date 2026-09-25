@@ -183,11 +183,15 @@ If you got back JSON with two tokens, you're done.
 
 ## Troubleshooting
 
+The admin API answers only `401 invalid token` or `403 insufficient scope`.
+The reason is in the relay's log as an `admin auth rejected` entry (`err`
+or `missing_scope` field); the table below quotes those fields.
+
 | Symptom | Likely cause |
 |---|---|
-| `401 invalid token: oidc: id token signed by alg "RS256" cannot be verified` | Issuer URL mismatch. The `iss` claim in the token must exactly equal `SWSRS_OIDC_ISSUER`. Trailing-slash differences count. |
-| `401 invalid token: oidc: id token issued by ...` | Same as above. |
-| `403 missing required scope: swsrs:session:create` | User doesn't have the role that maps to the scope. Check **Users → \<user\> → Role mappings**. |
-| `401 invalid token: oidc: audience claim ...` | Token's `aud` doesn't include `swsrs`. Add the audience mapper from step 8. |
+| `err`: `oidc: id token signed by alg "RS256" cannot be verified` | Issuer URL mismatch. The `iss` claim in the token must exactly equal `SWSRS_OIDC_ISSUER`. Trailing-slash differences count. |
+| `err`: `oidc: id token issued by ...` | Same as above. |
+| `missing_scope`: `swsrs:session:create` | User doesn't have the role that maps to the scope. Check **Users → \<user\> → Role mappings**. |
+| `err`: `oidc: audience claim ...` | Token's `aud` doesn't include `swsrs`. Add the audience mapper from step 8. |
 | `swsrs auth` says "IdP does not advertise device_authorization_endpoint" | Verify in your IdP that device authorization grant is enabled for the client (step 2). |
 | Discovery returns `device_authorization_endpoint: ""` | Keycloak's discovery doc lists device endpoint only when at least one client has the grant enabled. Recycle (`/admin/clear-keys`) if needed. |

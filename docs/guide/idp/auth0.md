@@ -112,10 +112,14 @@ swsrs create --admin-url https://relay.example.com
 
 ## Troubleshooting
 
+The admin API answers only `401 invalid token` or `403 insufficient scope`.
+The reason is in the relay's log as an `admin auth rejected` entry (`err`
+or `missing_scope` field); the table below quotes those fields.
+
 | Symptom | Likely cause |
 |---|---|
-| `audience claim ... not valid` | Token was issued for Auth0's `userinfo` endpoint, not for your API. Make sure your client code requests `audience=swsrs` (the SDK does this automatically when `SWSRS_OIDC_CLIENT_ID` is set and discovery surfaces the audience). |
-| `403 missing required scope: swsrs:session:create` | RBAC is off, OR the user doesn't have the role with that permission, OR "Add Permissions in the Access Token" is off (step 4). |
+| `err`: `audience claim ... not valid` | Token was issued for Auth0's `userinfo` endpoint, not for your API. Make sure your client code requests `audience=swsrs` (the SDK does this automatically when `SWSRS_OIDC_CLIENT_ID` is set and discovery surfaces the audience). |
+| `missing_scope`: `swsrs:session:create` | RBAC is off, OR the user doesn't have the role with that permission, OR "Add Permissions in the Access Token" is off (step 4). |
 | Discovery returns empty `device_authorization_endpoint` | Auth0 always advertises this; if it's empty, your relay couldn't reach the tenant. Check egress firewall. |
 | `swsrs auth` says "not authorized for grant_type:device_code" | Step 2.6 wasn't completed — device code grant isn't enabled on the application. |
 | `swsrs auth` hangs on poll forever | User closed the browser tab without completing the consent. Re-run. |

@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -129,6 +130,8 @@ func (c *Claims) HasScope(s string) bool {
 // attached to the request context.
 func (v *Verifier) Middleware(scope string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Details go to the server log only; clients get a generic answer
+		// so the endpoint doesn't help probe the verifier's configuration.
 		bearer, err := bearerFromHeader(r.Header.Get("Authorization"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -136,11 +139,13 @@ func (v *Verifier) Middleware(scope string, next http.Handler) http.Handler {
 		}
 		claims, err := v.Verify(r.Context(), bearer)
 		if err != nil {
-			http.Error(w, "invalid token: "+err.Error(), http.StatusUnauthorized)
+			slog.Info("admin auth rejected", "path", r.URL.Path, "err", err)
+			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
 		if scope != "" && !claims.HasScope(scope) {
-			http.Error(w, "missing required scope: "+scope, http.StatusForbidden)
+			slog.Info("admin auth rejected", "path", r.URL.Path, "sub", claims.Subject, "missing_scope", scope)
+			http.Error(w, "insufficient scope", http.StatusForbidden)
 			return
 		}
 		ctx := context.WithValue(r.Context(), claimsKey{}, claims)
@@ -157,7 +162,7 @@ func ClaimsFromContext(ctx context.Context) (*Claims, bool) {
 
 func bearerFromHeader(h string) (string, error) {
 	const prefix = "Bearer "
-	if !strings.HasPrefix(h, prefix) {
+	if len(h) < len(prefix) || !strings.EqualFold(h[:len(prefix)], prefix) {
 		return "", errors.New("missing bearer token")
 	}
 	return strings.TrimSpace(h[len(prefix):]), nil
