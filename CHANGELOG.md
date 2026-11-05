@@ -10,7 +10,26 @@ The Go binary (`swsrs`), the Docker image, and the TypeScript SDK
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **A session's own options at creation.** `POST /admin/sessions` takes an optional body:
+  `ttl_seconds` and `peer_wait_seconds` (up to the server's `--session-ttl` and `--peer-wait`, which
+  stay the defaults), an opaque `label` (256 bytes), and `single_attach`: each slot attaches once and
+  the session closes when either peer leaves. No body: as before.
+- **The lifecycle in status**, for a control plane polling it: `initiator_attached_at`,
+  `responder_attached_at`, `opened_at`, `closed_at` and `close_reason` (`deleted`, `expired`,
+  `peer_left`, `shutdown`), with the session's options.
+- **`--closed-retention`** (`SWSRS_CLOSED_RETENTION`, 10 minutes): a closed session's status stays
+  readable that long. The data plane answers a closed session's tokens with `410 Gone`, and a used
+  single-attach slot with `409`.
+- Go SDK `Admin.CreateSessionWith(ctx, SessionOptions)`; TS SDK `createSession(options)` (an
+  `AbortSignal` alone still works); `swsrs create --ttl --peer-wait --label --single-attach`.
+
+### Changed
+
+- Deleting a session, or its expiry, keeps its status readable for `--closed-retention` (state
+  `closed`) instead of removing it at once; `GET` then answers `200` rather than `404`. `0` restores
+  the old behaviour.
 
 ## [0.3.0] — 2026-09-25
 

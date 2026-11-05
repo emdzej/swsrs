@@ -25,6 +25,9 @@ const admin = new AdminClient({
 const session = await admin.createSession();
 // { id, initiator_token, responder_token, expires_at, ... }
 
+// or with its own settings (unset: the server's)
+const one = await admin.createSession({ ttlSeconds: 900, label: "support:ticket-42", singleAttach: true });
+
 const status = await admin.getSession(session.id);
 const all    = await admin.listSessions();
 await admin.deleteSession(session.id);

@@ -22,6 +22,21 @@ type Session struct {
 	ResponderURL   string    `json:"responder_url,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	ExpiresAt      time.Time `json:"expires_at"`
+	Label          string    `json:"label,omitempty"`
+	SingleAttach   bool      `json:"single_attach,omitempty"`
+}
+
+// SessionOptions are a session's own settings at creation. Zero values take
+// the server's; a TTL or peer wait over the server's is refused.
+type SessionOptions struct {
+	TTL      time.Duration
+	PeerWait time.Duration
+	// Label is the caller's own, opaque, up to 256 bytes (e.g. what the
+	// session is for); returned in status.
+	Label string
+	// SingleAttach: each slot attaches once, and the session closes when
+	// either peer leaves.
+	SingleAttach bool
 }
 
 // SessionStatus mirrors the admin API's status response.
@@ -35,6 +50,17 @@ type SessionStatus struct {
 	BytesOut           uint64    `json:"bytes_out"`
 	InitiatorConnected bool      `json:"initiator_connected"`
 	ResponderConnected bool      `json:"responder_connected"`
+	Label              string    `json:"label,omitempty"`
+	SingleAttach       bool      `json:"single_attach,omitempty"`
+	PeerWaitSeconds    int64     `json:"peer_wait_seconds,omitempty"`
+	// The lifecycle: each slot's first attach, when both first were, and
+	// when and why it closed (deleted, expired, peer_left, shutdown). A
+	// closed session stays readable for the server's --closed-retention.
+	InitiatorAttachedAt *time.Time `json:"initiator_attached_at,omitempty"`
+	ResponderAttachedAt *time.Time `json:"responder_attached_at,omitempty"`
+	OpenedAt            *time.Time `json:"opened_at,omitempty"`
+	ClosedAt            *time.Time `json:"closed_at,omitempty"`
+	CloseReason         string     `json:"close_reason,omitempty"`
 }
 
 // TokenSource provides a bearer token for admin calls. It is invoked per
@@ -69,8 +95,18 @@ func (a *Admin) httpClient() *http.Client {
 
 // CreateSession allocates a new session and returns its tokens.
 func (a *Admin) CreateSession(ctx context.Context) (*Session, error) {
+	return a.CreateSessionWith(ctx, SessionOptions{})
+}
+
+// CreateSessionWith allocates a new session with its own options.
+func (a *Admin) CreateSessionWith(ctx context.Context, o SessionOptions) (*Session, error) {
+	var in any
+	if o != (SessionOptions{}) {
+		in = map[string]any{"ttl_seconds": int64(o.TTL / time.Second), "peer_wait_seconds": int64(o.PeerWait / time.Second),
+			"label": o.Label, "single_attach": o.SingleAttach}
+	}
 	var s Session
-	if err := a.do(ctx, http.MethodPost, "/admin/sessions", nil, &s); err != nil {
+	if err := a.do(ctx, http.MethodPost, "/admin/sessions", in, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil

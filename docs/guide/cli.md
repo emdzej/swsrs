@@ -48,6 +48,7 @@ Calls the admin API to mint a session. Reads the credentials cache if
 ```bash
 swsrs create --admin-url https://relay.example.com
 swsrs create --admin-url … --output env > session.env
+swsrs create --admin-url … --ttl 15m --peer-wait 2m --label ticket-42 --single-attach
 ```
 
 | Flag | Purpose |

@@ -3,6 +3,9 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -22,7 +25,21 @@ type API struct {
 	// PublicBaseURL is the wss:// (or ws://) base used to build connect URLs
 	// in the create response, e.g. "wss://relay.example.com". Optional.
 	PublicBaseURL string
+	// MaxPeerWait is the most a session may ask for as its peer wait (the
+	// server's --peer-wait).
+	MaxPeerWait time.Duration
 }
+
+// createRequest is the optional body of POST /admin/sessions. Zero values
+// take the server's.
+type createRequest struct {
+	TTLSeconds      int64  `json:"ttl_seconds"`
+	PeerWaitSeconds int64  `json:"peer_wait_seconds"`
+	Label           string `json:"label"`
+	SingleAttach    bool   `json:"single_attach"`
+}
+
+const maxLabel = 256
 
 // Register wires admin routes onto the given mux. Scopes are enforced per
 // route via the auth middleware. If Verifier is nil, all routes are
@@ -49,10 +66,33 @@ type createResponse struct {
 	ResponderURL   string    `json:"responder_url,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	ExpiresAt      time.Time `json:"expires_at"`
+	Label          string    `json:"label,omitempty"`
+	SingleAttach   bool      `json:"single_attach,omitempty"`
 }
 
 func (a *API) create(w http.ResponseWriter, r *http.Request) {
-	sess := a.Store.Create()
+	var req createRequest
+	if r.ContentLength != 0 {
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+			writeError(w, http.StatusBadRequest, "body: "+err.Error())
+			return
+		}
+	}
+	ttl, wait := time.Duration(req.TTLSeconds)*time.Second, time.Duration(req.PeerWaitSeconds)*time.Second
+	switch {
+	case req.TTLSeconds < 0 || ttl > a.Store.MaxTTL():
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("ttl_seconds: 1 to %d", int64(a.Store.MaxTTL()/time.Second)))
+		return
+	case req.PeerWaitSeconds < 0 || (a.MaxPeerWait > 0 && wait > a.MaxPeerWait):
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("peer_wait_seconds: 1 to %d", int64(a.MaxPeerWait/time.Second)))
+		return
+	case len(req.Label) > maxLabel:
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("label: %d bytes at most", maxLabel))
+		return
+	}
+	sess := a.Store.CreateWith(session.Options{TTL: ttl, PeerWait: wait, Label: req.Label, SingleAttach: req.SingleAttach})
 	init, resp := sess.Tokens()
 	out := createResponse{
 		ID:             sess.ID,
@@ -60,6 +100,8 @@ func (a *API) create(w http.ResponseWriter, r *http.Request) {
 		ResponderToken: resp,
 		CreatedAt:      sess.CreatedAt,
 		ExpiresAt:      sess.ExpiresAt,
+		Label:          sess.Label,
+		SingleAttach:   sess.SingleAttach,
 	}
 	if a.PublicBaseURL != "" {
 		out.InitiatorURL = a.PublicBaseURL + "/relay/" + sess.ID
@@ -100,4 +142,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
 }

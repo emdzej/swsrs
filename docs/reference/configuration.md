@@ -14,6 +14,7 @@ the default.
 | `SWSRS_SESSION_TTL` / `--session-ttl` | `1h` | Maximum session lifetime |
 | `SWSRS_PEER_WAIT` / `--peer-wait` | `2m` | How long a peer waits for its counterpart |
 | `SWSRS_REAP_INTERVAL` / `--reap-interval` | `30s` | Expired-session sweep cadence |
+| `SWSRS_CLOSED_RETENTION` / `--closed-retention` | `10m` | How long a closed session's status stays readable (how it ended, its bytes). `0`: removed as it closes |
 | `SWSRS_PUBLIC_BASE_URL` / `--public-base-url` | — | Public ws(s) URL embedded in admin responses |
 | `SWSRS_ALLOWED_ORIGINS` | — | Comma-separated host patterns allowed as `Origin` for both WebSocket upgrades and HTTP/CORS on `/admin/*` and `/.well-known/*`. Glob hosts supported (`app.example.com`, `*.example.com`, `localhost:*`). Empty = same-origin only. |
 | `SWSRS_TLS_CERT` / `--tls-cert` | — | PEM cert; with `--tls-key` enables in-process TLS |

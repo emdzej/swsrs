@@ -71,10 +71,15 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	// Pre-upgrade check so a busy slot is a plain HTTP 409 rather than a
-	// close frame after the upgrade. Attach below remains authoritative.
+	// Pre-upgrade checks so a closed session is a plain 410 and a busy (or,
+	// single attach, used) slot a 409, rather than a close frame after the
+	// upgrade. Attach below remains authoritative.
+	if !sess.ClosedAt().IsZero() {
+		http.Error(w, session.ErrClosed.Error(), http.StatusGone)
+		return
+	}
 	if !sess.SlotFree(role) {
-		http.Error(w, session.ErrSlotTaken.Error(), http.StatusConflict)
+		http.Error(w, "slot taken or already used", http.StatusConflict)
 		return
 	}
 
@@ -120,7 +125,11 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 // reap, shutdown) or when the counterpart has not attached within
 // PeerWaitTimeout. Returns once it has closed conn or ctx is done.
 func (h *Handler) watch(ctx context.Context, sess *session.Session, self session.Role, conn *websocket.Conn) {
-	timeout := time.NewTimer(h.PeerWaitTimeout)
+	wait := h.PeerWaitTimeout
+	if sess.PeerWait > 0 {
+		wait = sess.PeerWait
+	}
+	timeout := time.NewTimer(wait)
 	defer timeout.Stop()
 	for {
 		peer, changed := sess.Peer(self)

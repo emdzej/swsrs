@@ -31,6 +31,12 @@ admin := &client.Admin{
 sess, err := admin.CreateSession(ctx)
 // sess.ID, sess.InitiatorToken, sess.ResponderToken, sess.ExpiresAt
 
+// or with its own settings (zero: the server's)
+sess, err = admin.CreateSessionWith(ctx, client.SessionOptions{
+    TTL: 15 * time.Minute, PeerWait: 2 * time.Minute, Label: "support:ticket-42", SingleAttach: true,
+})
+// status.ClosedAt and status.CloseReason say how it ended (readable for --closed-retention)
+
 status, err   := admin.GetSession(ctx, sess.ID)
 sessions, err := admin.ListSessions(ctx)
 err           = admin.DeleteSession(ctx, sess.ID)

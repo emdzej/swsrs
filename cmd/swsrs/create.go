@@ -20,6 +20,10 @@ func runCreate(args []string) int {
 	token := fs.String("oidc-token", os.Getenv("SWSRS_OIDC_TOKEN"), "OIDC bearer token (overrides cached credentials)")
 	credsPath := fs.String("credentials", "", "path to cached credentials file (default: OS user-config dir)")
 	output := fs.String("output", "json", "json | env (env emits SWSRS_SESSION/INITIATOR_TOKEN/RESPONDER_TOKEN for eval)")
+	ttl := fs.Duration("ttl", 0, "this session's lifetime (0: the server's; at most the server's)")
+	peerWait := fs.Duration("peer-wait", 0, "how long a peer waits for the other (0: the server's)")
+	label := fs.String("label", "", "an opaque label of yours, returned in status (256 bytes at most)")
+	single := fs.Bool("single-attach", false, "each side attaches once; the session ends when either leaves")
 	_ = fs.Parse(args)
 
 	if *adminURL == "" {
@@ -37,7 +41,7 @@ func runCreate(args []string) int {
 	}
 
 	admin := &client.Admin{BaseURL: *adminURL, Token: tokSource}
-	sess, err := admin.CreateSession(ctx)
+	sess, err := admin.CreateSessionWith(ctx, client.SessionOptions{TTL: *ttl, PeerWait: *peerWait, Label: *label, SingleAttach: *single})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "create session:", err)
 		return 1

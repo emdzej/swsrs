@@ -30,6 +30,21 @@ describe("AdminClient", () => {
     expect(s.id).toBe("s1");
   });
 
+  it("createSession sends a session's own options; none: no body", async () => {
+    const bodies: (string | null)[] = [];
+    const fetch = mockFetch(async (req) => {
+      bodies.push(req.headers.get("Content-Type") ? await req.text() : null);
+      return new Response(JSON.stringify({ id: "s", initiator_token: "i", responder_token: "r", created_at: "", expires_at: "" }), { status: 201 });
+    });
+    const c = new AdminClient({ baseURL: "https://relay.example.com", token: () => "t", fetch });
+    await c.createSession({ ttlSeconds: 900, peerWaitSeconds: 120, label: "alias:nip:42", singleAttach: true });
+    await c.createSession();
+    await c.createSession(new AbortController().signal);
+    expect(JSON.parse(bodies[0]!)).toEqual({ ttl_seconds: 900, peer_wait_seconds: 120, label: "alias:nip:42", single_attach: true });
+    expect(bodies[1]).toBeNull();
+    expect(bodies[2]).toBeNull();
+  });
+
   it("calls the token provider per request (supports rotation)", async () => {
     let n = 0;
     const tokens = ["t1", "t2"];

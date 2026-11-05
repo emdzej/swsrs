@@ -229,3 +229,52 @@ func TestUnknownSessionAndBadToken(t *testing.T) {
 		t.Fatal("dial hung")
 	}
 }
+
+// Single attach: when one peer leaves the session closes (the other is
+// disconnected, peer_left), and neither token works again (410).
+func TestSingleAttachEndsWhenAPeerLeaves(t *testing.T) {
+	tr := startRelay(t, time.Minute)
+	tr.sess = tr.store.CreateWith(session.Options{SingleAttach: true, Label: "ticket 7"})
+	init, resp := tr.sess.Tokens()
+	a, b := tr.dial(t, init), tr.dial(t, resp)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := a.Write(ctx, websocket.MessageBinary, []byte("hi")); err != nil {
+		t.Fatal(err)
+	}
+	if _, got, err := b.Read(ctx); err != nil || string(got) != "hi" {
+		t.Fatalf("relayed: %q %v", got, err)
+	}
+	_ = a.Close(websocket.StatusNormalClosure, "done")
+	if _, _, err := b.Read(ctx); err == nil {
+		t.Fatal("the other peer stays connected")
+	}
+	st := tr.sess.Status()
+	for i := 0; i < 100 && st.State != "closed"; i++ { // (the leaving peer's detach can lag the other's disconnect)
+		time.Sleep(10 * time.Millisecond)
+		st = tr.sess.Status()
+	}
+	if st.State != "closed" || st.CloseReason != session.ReasonPeerLeft || st.OpenedAt == nil || st.Label != "ticket 7" {
+		t.Fatalf("status: %+v", st)
+	}
+	for _, tok := range []string{init, resp} {
+		_, res, err := websocket.Dial(ctx, tr.url+"/relay/"+tr.sess.ID, &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": []string{"Bearer " + tok}}})
+		if err == nil || res == nil || res.StatusCode != http.StatusGone {
+			t.Fatalf("a token after the end: %v %v", res, err)
+		}
+	}
+}
+
+// A session's own peer wait overrides the relay's.
+func TestSessionPeerWait(t *testing.T) {
+	tr := startRelay(t, time.Minute)
+	tr.sess = tr.store.CreateWith(session.Options{PeerWait: 200 * time.Millisecond})
+	init, _ := tr.sess.Tokens()
+	c := tr.dial(t, init)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	start := time.Now()
+	if _, _, err := c.Read(ctx); err == nil || time.Since(start) > 2*time.Second {
+		t.Fatalf("not disconnected by its own peer wait: %v after %v", err, time.Since(start))
+	}
+}

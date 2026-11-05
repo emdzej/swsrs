@@ -30,6 +30,7 @@ type serveConfig struct {
 	SessionTTL      time.Duration
 	PeerWaitTimeout time.Duration
 	ReapInterval    time.Duration
+	ClosedRetention time.Duration
 	PublicBaseURL   string
 	AllowedOrigins  []string
 	TLSCert         string
@@ -48,6 +49,7 @@ func runServe(args []string) int {
 		SessionTTL:      envDuration("SWSRS_SESSION_TTL", 1*time.Hour, &envErrs),
 		PeerWaitTimeout: envDuration("SWSRS_PEER_WAIT", 2*time.Minute, &envErrs),
 		ReapInterval:    envDuration("SWSRS_REAP_INTERVAL", 30*time.Second, &envErrs),
+		ClosedRetention: envDuration("SWSRS_CLOSED_RETENTION", 10*time.Minute, &envErrs),
 		PublicBaseURL:   os.Getenv("SWSRS_PUBLIC_BASE_URL"),
 		TLSCert:         os.Getenv("SWSRS_TLS_CERT"),
 		TLSKey:          os.Getenv("SWSRS_TLS_KEY"),
@@ -66,6 +68,7 @@ func runServe(args []string) int {
 	fs.DurationVar(&cfg.SessionTTL, "session-ttl", cfg.SessionTTL, "max session lifetime")
 	fs.DurationVar(&cfg.PeerWaitTimeout, "peer-wait", cfg.PeerWaitTimeout, "how long to wait for the other peer")
 	fs.DurationVar(&cfg.ReapInterval, "reap-interval", cfg.ReapInterval, "how often expired sessions are swept")
+	fs.DurationVar(&cfg.ClosedRetention, "closed-retention", cfg.ClosedRetention, "how long a closed session's status stays readable (0: removed as it closes)")
 	fs.StringVar(&cfg.PublicBaseURL, "public-base-url", cfg.PublicBaseURL, "public ws(s):// URL for connect links in admin responses")
 	fs.StringVar(&cfg.TLSCert, "tls-cert", cfg.TLSCert, "path to PEM cert (with --tls-key enables TLS; omit both to run plain HTTP behind external termination)")
 	fs.StringVar(&cfg.TLSKey, "tls-key", cfg.TLSKey, "path to PEM key")
@@ -110,7 +113,12 @@ func runServe(args []string) int {
 		verifier = v
 	}
 
+	if cfg.ClosedRetention < 0 {
+		logger.Error("--closed-retention must not be negative")
+		return 2
+	}
 	store := session.NewStore(cfg.SessionTTL)
+	store.Retention = cfg.ClosedRetention
 	go store.RunReaper(ctx, cfg.ReapInterval)
 
 	mux := http.NewServeMux()
@@ -118,6 +126,7 @@ func runServe(args []string) int {
 		Store:         store,
 		Verifier:      verifier,
 		PublicBaseURL: cfg.PublicBaseURL,
+		MaxPeerWait:   cfg.PeerWaitTimeout,
 	}).Register(mux)
 	relayHandler := &relay.Handler{
 		Store:           store,

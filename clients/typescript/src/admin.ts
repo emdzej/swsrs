@@ -1,4 +1,4 @@
-import type { Session, SessionStatus, TokenProvider } from "./types.js";
+import type { Session, SessionOptions, SessionStatus, TokenProvider } from "./types.js";
 
 export interface AdminClientOptions {
   /** Relay admin base URL, e.g. "https://relay.example.com". */
@@ -23,9 +23,13 @@ export class AdminClient {
     this.fetchImpl = opts.fetch ?? fetch.bind(globalThis);
   }
 
-  /** Allocate a new relay session. Returns id + per-slot tokens. */
-  async createSession(signal?: AbortSignal): Promise<Session> {
-    return this.request<Session>("POST", "/admin/sessions", signal);
+  /** Allocate a new relay session, with its own options if given. Returns id + per-slot tokens. */
+  async createSession(opts?: SessionOptions | AbortSignal, signal?: AbortSignal): Promise<Session> {
+    if (opts instanceof AbortSignal) return this.request<Session>("POST", "/admin/sessions", opts);
+    const body = opts && Object.keys(opts).length
+      ? { ttl_seconds: opts.ttlSeconds ?? 0, peer_wait_seconds: opts.peerWaitSeconds ?? 0, label: opts.label ?? "", single_attach: opts.singleAttach ?? false }
+      : undefined;
+    return this.request<Session>("POST", "/admin/sessions", signal, body);
   }
 
   /** Fetch current status of a session. */
@@ -44,12 +48,15 @@ export class AdminClient {
     await this.request<void>("DELETE", `/admin/sessions/${encodeURIComponent(id)}`, signal);
   }
 
-  private async request<T>(method: string, path: string, signal?: AbortSignal): Promise<T> {
+  private async request<T>(method: string, path: string, signal?: AbortSignal, body?: unknown): Promise<T> {
     const token = await this.tokenFn();
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
     const resp = await this.fetchImpl(this.baseURL + path, {
       method,
-      headers: { Authorization: `Bearer ${token}` },
+      headers,
       signal,
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");

@@ -102,3 +102,33 @@ func TestStoreReapAndList(t *testing.T) {
 		t.Fatal("reaped session still in store")
 	}
 }
+
+// A closed session stays readable for Retention, with why it closed; then
+// the reaper removes it. Expiry is a reason too.
+func TestRetentionAndReasons(t *testing.T) {
+	st := NewStore(time.Minute)
+	st.Retention = time.Minute
+	a := st.CreateWith(Options{Label: "x", TTL: time.Hour}) // (capped at the store's)
+	if a.ExpiresAt.Sub(a.CreatedAt) > time.Minute+time.Second {
+		t.Fatalf("ttl not capped: %v", a.ExpiresAt.Sub(a.CreatedAt))
+	}
+	st.Delete(a.ID)
+	got, ok := st.Get(a.ID)
+	if !ok || got.Status().CloseReason != ReasonDeleted || got.Status().ClosedAt == nil {
+		t.Fatalf("deleted, kept for retention: %v %+v", ok, got)
+	}
+	b := st.Create()
+	st.Reap(time.Now().Add(2 * time.Minute)) // b expired: closed now, kept; a closed 2 min ago: gone
+	if _, ok := st.Get(a.ID); ok {
+		t.Fatal("past retention, still there")
+	}
+	if s, ok := st.Get(b.ID); !ok || s.Status().CloseReason != ReasonExpired {
+		t.Fatalf("expired: %v", s)
+	}
+	st.Retention = 0
+	c := st.Create()
+	st.Delete(c.ID)
+	if _, ok := st.Get(c.ID); ok {
+		t.Fatal("retention 0 keeps it")
+	}
+}
