@@ -10,6 +10,8 @@ The Go binary (`swsrs`), the Docker image, and the TypeScript SDK
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-05
+
 ### Added
 
 - **A session's own options at creation.** `POST /admin/sessions` takes an optional body:
@@ -299,7 +301,8 @@ client surface — `AdminClient`, `dial` / `accept` returning a
 
 No corresponding server / Go binary / Docker release at this version.
 
-[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/emdzej/swsrs/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/emdzej/swsrs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/emdzej/swsrs/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/emdzej/swsrs/releases/tag/v0.2.2
 [0.2.1]: https://github.com/emdzej/swsrs/releases/tag/v0.2.1
