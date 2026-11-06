@@ -72,10 +72,11 @@ You sell BMW diagnostic and coding software. Picture the flow:
 
 > An owner wants help reading fault codes or applying coding changes. They run the **diagnostic app** you provided — a small Go binary that talks to the ECU over OBD-II. The app calls into the swsrs SDK and creates a session. Your backend pushes the responder token to a more experienced specialist via your existing UX. The specialist opens your **operator UI** in the browser. It uses the swsrs SDK to connect as the initiator. The UI is now talking live to the ECU on the owner's actual car. The specialist reads adaptation values, writes coding changes, validates against real-time telemetry. Done, hang up, session closes.
 
-This isn't hypothetical — it's the real shape of
-[Bimmerz Connect](/guide/case-studies/bimmerz), the production swsrs
-deployment that powers the [bimmerz.app](https://bimmerz.app) suite of
-BMW apps.
+A simpler version of this runs in production as
+[Bimmerz Connect](/guide/case-studies/bimmerz): the owner runs the
+EdiabasX CLI next to the car, it mints the session and prints a link,
+and the remote user opens the link in a bimmerz.app web app. No
+backend in between.
 
 What this is NOT:
 
@@ -149,12 +150,24 @@ For production: pick an IdP, point `--oidc-issuer` at it, and your clients run `
 
 <div style="border:1px solid var(--vp-c-divider); border-radius:12px; padding:1.25rem 1.5rem; margin:1.5rem 0;">
 
-**Bimmerz Connect** — the relay behind [bimmerz.app](https://bimmerz.app)'s
-BMW diagnostic and coding suite. Owners run a diagnostic app at home
-plugged into their car; experienced users connect remotely from a web
-UI and work on the live ECU.
+**Bimmerz Connect**: the relay behind [bimmerz.app](https://bimmerz.app)'s
+BMW diagnostic and coding tools. The owner runs the EdiabasX CLI on the
+machine with the cable; a remote user runs diagnostic jobs on the car
+from a browser. TypeScript SDK on both sides.
 
 [Read the case study →](/guide/case-studies/bimmerz)
+
+</div>
+
+<div style="border:1px solid var(--vp-c-divider); border-radius:12px; padding:1.25rem 1.5rem; margin:1.5rem 0;">
+
+**ALIAS**: remote assistance in [ALIAS](https://getalias.support), a
+support desk built into products. From a ticket, support asks to open
+SSH or VNC on the user's device; nothing connects until the device
+accepts. Go SDK on the CLI and agent, sessions minted per request by
+the ALIAS server.
+
+[Read the case study →](/guide/case-studies/alias)
 
 </div>
 

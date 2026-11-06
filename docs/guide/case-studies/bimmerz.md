@@ -1,129 +1,125 @@
 ---
 title: Bimmerz Connect
-description: How the Bimmerz Connect relay powers live remote-diagnostic and coding sessions across the bimmerz.app suite of BMW-focused apps.
+description: How Bimmerz Connect uses swsrs to let a remote browser run BMW diagnostic jobs against a car connected to someone else's machine.
 ---
 
 # Bimmerz Connect
 
-**Product:** [bimmerz.app](https://bimmerz.app) — a suite of apps for
-BMW owners and technicians.
-**Relay deployment:** [connect.bimmerz.app](https://connect.bimmerz.app) — a single-instance
-self-hosted swsrs.
-**Status:** in production.
+**Product:** [bimmerz.app](https://bimmerz.app), open-source
+replacements for BMW's diagnostic, coding, and documentation software
+(EdiabasX, INPAX, NCSX, NFSX and others).
+
+**Relay deployment:** [connect.bimmerz.app](https://connect.bimmerz.app),
+a self-hosted swsrs instance.
+
+**Status:** in production since EdiabasX 0.6.0.
 
 ## The problem
 
-BMW diagnostics and coding usually means "plug a tool into the OBD-II
-port and run software against the car's bus." Owners doing this at home
-have a laptop, an OBD-II adapter, and one of the bimmerz.app apps.
-What they often **don't** have is the experience to interpret the
-results — fault codes, adaptation values, ECU coding maps.
+BMW diagnostics needs a cable plugged into the car and a machine with
+the cable driver and the ECU description files (SGBDs). The person
+sitting at that machine is often not the person who knows what to do
+with it. The car is in someone's garage, behind a home router, and
+neither side wants to set up port forwarding or a VPN.
 
-The natural solution is to hand the live diagnostic session to someone
-more experienced. The not-natural part is the network: the owner's
-laptop sits behind a home router, the experienced user is somewhere
-else entirely, and neither party wants to install OpenVPN or open
-ports.
+EdiabasX already had a client/server split: `ediabasx serve` wraps the
+EDIABAS runtime behind a JSON-RPC API over WebSocket, and the web apps
+can drive it remotely. On a LAN that's a plain `ws://host:port`.
+Bimmerz Connect is the same thing across NAT.
 
 ## The shape
 
-The exact pattern swsrs is built for:
+- **Responder: the machine with the cable.** The owner runs the
+  EdiabasX CLI (Node) with `--connect`:
 
-- **Customer side:** the owner runs an app from the bimmerz.app suite.
-  The app embeds the swsrs Go SDK, talks to the car's ECU over OBD-II,
-  and opens an outbound WebSocket to Bimmerz Connect when the owner
-  starts a session.
-- **Operator side:** the experienced user opens a web UI from
-  bimmerz.app. The UI uses the swsrs TypeScript SDK to connect as the
-  initiator. They see the live car data, read fault codes, apply
-  coding changes — all happening on the owner's actual car, in real
-  time, through the browser.
-- **Rendezvous:** Bimmerz Connect (swsrs) brokers the two ends. It
-  sees ciphertext-equivalent bytes; the ECU protocol is between the
-  two app halves.
+  ```bash
+  ediabasx serve --connect \
+    --sgbd-path ~/ECU --interface kdcan --serial-port /dev/cu.usbserial-XXXX
+  ```
+
+  The CLI creates the session itself, attaches as the responder with
+  `accept()` from the swsrs TypeScript SDK, and hands the socket to
+  the EdiabasX server.
+- **Initiator: a browser.** The remote user opens one of the web apps
+  (EdiabasX, INPAX, NCSX, NFSX), which calls `dial()` from the same
+  SDK with the initiator token.
+- **Hand-over:** the CLI prints the initiator token and a deep link
+  (`https://ediabasx.bimmerz.app?connect=<token>`). The owner shares
+  it over whatever channel they already use. The remote user clicks
+  it, or pastes the token into the web app's Bimmerz Connect dialog.
 
 ```mermaid
-flowchart TB
-    relay["<b>Bimmerz Connect</b> (swsrs)<br/>connect.bimmerz.app"]
-    car["<b>Car ECU</b>"]
-    adapter["OBD-II adapter"]
-    owner["<b>Owner's laptop</b><br/>diagnostic app from bimmerz.app<br/><i>(swsrs Go SDK)</i>"]
-    operator["<b>Specialist UI</b><br/>bimmerz.app browser app<br/><i>(swsrs TS SDK)</i>"]
-    idp["Keycloak<br/>auth.solvely.pl/realms/bimmerz"]
+sequenceDiagram
+    autonumber
+    participant Owner as Owner's machine<br/>ediabasx serve --connect<br/>(Node, TS SDK)
+    participant IdP as OIDC IdP
+    participant Relay as Bimmerz Connect<br/>(swsrs)
+    participant Web as Remote user's browser<br/>EdiabasX / INPAX / NCSX / NFSX<br/>(TS SDK)
 
-    car <-- OBD-II --> adapter
-    adapter <-- USB / Bluetooth --> owner
-    owner -- "outbound wss://" --> relay
-    operator -- "outbound wss://" --> relay
-    operator -. tunneled ECU traffic .- owner
-    operator <-- "OIDC login (device flow)" --> idp
-    relay -. "JWT verify (JWKS)" .- idp
-
-    classDef cloud fill:#2563eb,stroke:#1d4ed8,color:#fff
-    classDef peer  fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
-    classDef hw    fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    classDef idpc  fill:#ecfdf5,stroke:#10b981,color:#064e3b
-    class relay cloud
-    class owner,operator peer
-    class car,adapter hw
-    class idp idpc
+    Owner->>Relay: GET /.well-known/swsrs-config
+    Owner->>IdP: device flow (first run only, token cached)
+    Owner->>Relay: POST /admin/sessions
+    Relay-->>Owner: { id, initiator_token, responder_token }
+    Owner->>Relay: WS /relay/{id} (responder)
+    Owner-->>Web: deep link with initiator token<br/>(shared out of band)
+    Web->>Relay: WS /relay/{id} (initiator)
+    Note over Owner,Web: EdiabasX JSON-RPC 2.0, one message per frame:<br/>job("IKE", "IDENT"), log streams, results
 ```
+
+The car side is plain hardware: ECU, OBD-II, a K+DCAN or similar cable
+to the owner's machine. None of that crosses the relay. What crosses
+it is EdiabasX JSON-RPC at the level of diagnostic jobs, not raw bus
+frames, and the relay doesn't inspect it.
+
+## Which swsrs parts
+
+| Part | Used | Where |
+|---|---|---|
+| Relay server | Yes | `connect.bimmerz.app` |
+| TypeScript SDK | Yes, both peers | `ediabasx` CLI (`accept`), EdiabasX / INPAX / NCSX / NFSX web apps (`dial`) |
+| `discoverConfig`, `deviceLogin`, `FileTokenStore` | Yes | `ediabasx` CLI, for minting |
+| Go SDK | No | |
+| swsrs CLI | No | |
+
+The same SDK runs in Node on the cable side and in the browser on the
+remote side, with no runtime dependencies in either.
+
+## Auth
+
+There is no Bimmerz backend in the path. The owner running
+`ediabasx serve --connect` is the one who mints the session:
+
+1. The CLI reads the relay's [discovery document](/reference/discovery)
+   to find the IdP. No issuer, client ID or scopes are configured in
+   EdiabasX.
+2. On first run it runs OAuth device flow: it prints a code and a URL,
+   the owner signs in from any browser. The token is cached with
+   `FileTokenStore`. On a 401 it clears the cache and logs in again.
+3. It calls `createSession()` with the server defaults.
+
+The remote user never signs in to anything. The initiator token in the
+link is all they need. This is the [two-plane split](/guide/auth) in
+its simplest form: one party with an IdP identity mints, and the other
+party only holds a slot token.
 
 ## Why swsrs
 
-A few things lined up:
+- **Both sides dial out.** The owner's machine needs no open port, and
+  the remote user is in a browser.
+- **The protocol didn't change.** EdiabasX's JSON-RPC over WebSocket
+  runs the same over the relay as on a LAN. The integration point was
+  a pre-connected socket: `EdiabasServer.attachStandardWebSocket()` on
+  one side and `EdiabasClient`'s `socket` option on the other.
+- **One SDK for Node and browser.** Four web apps and the CLI share
+  the same client.
+- **The data path is Bimmerz's.** ECU data stays on infrastructure the
+  project controls.
 
-1. **The owner doesn't need an IdP identity.** This is the canonical
-   reason for swsrs's two-plane auth split. The owner runs an app and
-   clicks a button; the app gets a session token; the operator (who
-   *does* have a Keycloak identity) authenticates separately. The
-   owner is never asked to "log in to anything" beyond their existing
-   bimmerz.app account.
+## Rough edges
 
-2. **Same SDK in two very different runtimes.** The diagnostic head
-   app is a Go binary on Windows / macOS / Linux. The operator UI is
-   a web app in a browser. Both link the swsrs SDK and speak the same
-   wire protocol with zero glue.
-
-3. **The data path stays Bimmerz's.** ECU data — fault codes, VINs,
-   adaptation maps — never leaves infrastructure Bimmerz controls.
-   That's not negotiable when you're touching someone's car.
-
-4. **Tiny operational surface.** Bimmerz Connect is one ~7 MB binary,
-   deployed as a Docker image. Operationally it's a non-event.
-
-5. **Open extension path.** New ECU protocols, new app variants, new
-   operator tools — all of them are SDK consumers. The relay doesn't
-   need releases to support new flows.
-
-## Auth setup
-
-The Bimmerz Connect deployment uses Keycloak as the IdP, configured
-per the [Keycloak guide](/guide/idp/keycloak):
-
-| Setting | Value |
-|---|---|
-| Issuer       | `https://auth.solvely.pl/realms/bimmerz` |
-| Audience     | `swsrs` |
-| Client ID    | `swsrs` (single public client; device-flow enabled) |
-| Scopes       | `swsrs:session:create`, `swsrs:session:read`, `swsrs:session:delete` |
-
-Specialists (the operator side) have their accounts in the Keycloak
-realm with `swsrs:session:create` granted via a role. Owners (the
-customer side) never touch Keycloak — they're authenticated against
-their bimmerz.app account, and the bimmerz.app backend mints sessions
-on their behalf.
-
-## Result
-
-Owners get help with their car without learning anything about
-networking, VPNs, or screen-sharing. Specialists get a live view into
-the actual car on the actual driveway from their browser. swsrs
-disappears into the product — neither side knows or cares that there's
-a relay involved.
-
-## Got a case study?
-
-If you're using swsrs in production and want it featured here, open an
-issue at [github.com/emdzej/swsrs](https://github.com/emdzej/swsrs/issues)
-with a short description of the deployment.
+- **No reconnect.** If the socket drops, the CLI exits and the web apps
+  ask for a fresh token. swsrs has no transparent reconnect, so
+  recovery means starting a new session.
+- **Manual hand-over.** The link is shared by hand. That's fine for
+  "help me with my car", and it's also the reason no backend is
+  needed.
